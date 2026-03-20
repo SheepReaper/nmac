@@ -1,6 +1,7 @@
 using System.Xml.Serialization;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,8 +41,31 @@ public static class ServerCompositionExtensions
     builder.AddNmacYouTubeClients();
     builder.AddNmacTelemetry();
     builder.AddNmacAuth();
+    builder.AddNmacDataProtection();
     builder.AddNmacForwardedHeaders();
     builder.AddNmacDomainServices();
+
+    return builder;
+  }
+
+  public static WebApplicationBuilder AddNmacDataProtection(this WebApplicationBuilder builder)
+  {
+    var configuredKeyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+
+    var keyRingPath = !string.IsNullOrWhiteSpace(configuredKeyRingPath)
+      ? configuredKeyRingPath
+      : builder.Environment.IsDevelopment()
+        ? Path.Combine(
+          Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+          "NMAC",
+          "DataProtectionKeys")
+        : "/var/nmac/dataprotection-keys";
+
+    Directory.CreateDirectory(keyRingPath);
+
+    builder.Services.AddDataProtection()
+      .SetApplicationName("NMAC")
+      .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
 
     return builder;
   }
