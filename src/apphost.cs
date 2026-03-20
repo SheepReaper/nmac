@@ -39,6 +39,7 @@ var api = builder.AddProject<Projects.NMAC>("api")
     .WithEnvironment("DeveloperBasicAuth__Username", devUsername)
     .WithEnvironment("DeveloperBasicAuth__Password", devPassword)
     .WithEnvironment("YTClient__ApiKey", ytApiKey)
+    .WithEnvironment("DataProtection__KeyRingPath", "/data-protection-keys")
     .WithHttpEndpoint(8080, name: "devtunnel") // devtunnel
     .WithHttpEndpoint(80, name: "http") // cloudflared
     .WithContainerRegistry(registry)

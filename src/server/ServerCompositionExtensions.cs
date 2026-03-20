@@ -51,15 +51,12 @@ public static class ServerCompositionExtensions
   public static WebApplicationBuilder AddNmacDataProtection(this WebApplicationBuilder builder)
   {
     var configuredKeyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+    var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+    var defaultKeyRingRoot = string.IsNullOrWhiteSpace(appDataPath) ? Path.GetTempPath() : appDataPath;
 
     var keyRingPath = !string.IsNullOrWhiteSpace(configuredKeyRingPath)
       ? configuredKeyRingPath
-      : builder.Environment.IsDevelopment()
-        ? Path.Combine(
-          Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-          "NMAC",
-          "DataProtectionKeys")
-        : "/var/nmac/dataprotection-keys";
+      : Path.Combine(defaultKeyRingRoot, "NMAC", "DataProtectionKeys");
 
     Directory.CreateDirectory(keyRingPath);
 
