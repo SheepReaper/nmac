@@ -237,6 +237,7 @@ public static class ServerCompositionExtensions
     builder.Services.AddSingleton(VersionHelper.Get());
 
     builder.Services.AddScoped<SubscriptionService>();
+    builder.Services.AddScoped<BrowserTimeInterop>();
     builder.Services.AddScoped<LiveChatStreamProcessor>();
     builder.Services.AddScoped<ILiveStreamDashboardQueryService, LiveStreamDashboardQueryService>();
 

@@ -1,5 +1,6 @@
 @page "/streams/{VideoId}"
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
 
 @inherits StreamPageBase
 @implements IDisposable
@@ -8,6 +9,7 @@
 
 @inject ILiveStreamDashboardQueryService QueryService
 @inject ILiveStreamUpdateNotifier UpdateNotifier
+@inject BrowserTimeInterop BrowserTimeInterop
 @inject TimeProvider Tp
 @inject ProtectedLocalStorage ProtectedLocalStore
 
@@ -291,7 +293,7 @@
     CancellationTokenSource cts = new(TimeSpan.FromSeconds(30));
 
     _targetCompletionUtc = Tp.GetUtcNow().AddHours(1);
-    SyncLocalTargetInputFromUtc();
+    SyncLocalTargetInputFromServerTimeZone();
 
     await ReloadDashboardAsync(cts.Token);
   }
@@ -303,12 +305,9 @@
 
     _browserStateReady = true;
 
-    if (RendererInfo.IsInteractive)
-    {
-      using CancellationTokenSource initialLoadCts = new(TimeSpan.FromSeconds(30));
-      await LoadStoredTargetCompletionAsync(initialLoadCts.Token);
-      await LoadAckStatesAsync(initialLoadCts.Token);
-    }
+    using CancellationTokenSource initialLoadCts = new(TimeSpan.FromSeconds(30));
+    await LoadStoredTargetCompletionAsync(initialLoadCts.Token);
+    await LoadAckStatesAsync(initialLoadCts.Token);
 
     _subscription = UpdateNotifier.Subscribe(VideoId, update =>
     {
@@ -408,10 +407,9 @@
     {
       var stored = await ProtectedLocalStore.GetAsync<DateTimeOffset?>($"nmac.target-completion.{VideoId}");
       if (stored.Success && stored.Value.HasValue)
-      {
         _targetCompletionUtc = stored.Value.Value.ToUniversalTime();
-        SyncLocalTargetInputFromUtc();
-      }
+
+      await SyncLocalTargetInputFromUtcAsync();
     }
     catch (OperationCanceledException) when (ct.IsCancellationRequested)
     {
@@ -488,11 +486,41 @@
 
   private async Task OnTargetCompletionChanged()
   {
-    _targetCompletionUtc = BuildUtcFromLocalInput(_targetCompletionLocalInput);
+    _targetCompletionUtc = await BuildUtcFromLocalInputAsync(_targetCompletionLocalInput);
     await ProtectedLocalStore.SetAsync($"nmac.target-completion.{VideoId}", _targetCompletionUtc);
   }
 
-  private void SyncLocalTargetInputFromUtc()
+  private async Task SyncLocalTargetInputFromUtcAsync()
+  {
+    if (!_browserStateReady)
+    {
+      SyncLocalTargetInputFromServerTimeZone();
+      return;
+    }
+
+    try
+    {
+      var local = await BrowserTimeInterop.GetLocalDateTimePartsAsync(_targetCompletionUtc);
+      _targetCompletionLocalInput = new DateTime(
+        local.Year,
+        local.Month,
+        local.Day,
+        local.Hour,
+        local.Minute,
+        0,
+        DateTimeKind.Unspecified);
+    }
+    catch (InvalidOperationException)
+    {
+      SyncLocalTargetInputFromServerTimeZone();
+    }
+    catch (JSDisconnectedException)
+    {
+      SyncLocalTargetInputFromServerTimeZone();
+    }
+  }
+
+  private void SyncLocalTargetInputFromServerTimeZone()
   {
     var local = TimeZoneInfo.ConvertTime(_targetCompletionUtc, Tp.LocalTimeZone);
     _targetCompletionLocalInput = new DateTime(
@@ -505,11 +533,31 @@
       DateTimeKind.Unspecified);
   }
 
-  private DateTimeOffset BuildUtcFromLocalInput(DateTime localInput)
+  private async Task<DateTimeOffset> BuildUtcFromLocalInputAsync(DateTime localInput)
   {
     var unspecifiedLocal = DateTime.SpecifyKind(localInput, DateTimeKind.Unspecified);
-    var localOffset = Tp.LocalTimeZone.GetUtcOffset(unspecifiedLocal);
-    return new DateTimeOffset(unspecifiedLocal, localOffset).ToUniversalTime();
+
+    if (!_browserStateReady)
+    {
+      var serverLocalOffset = Tp.LocalTimeZone.GetUtcOffset(unspecifiedLocal);
+      return new DateTimeOffset(unspecifiedLocal, serverLocalOffset).ToUniversalTime();
+    }
+
+    try
+    {
+      var localOffsetMinutes = await BrowserTimeInterop.GetUtcOffsetMinutesAsync(unspecifiedLocal);
+      return new DateTimeOffset(unspecifiedLocal, TimeSpan.FromMinutes(localOffsetMinutes)).ToUniversalTime();
+    }
+    catch (InvalidOperationException)
+    {
+      var localOffset = Tp.LocalTimeZone.GetUtcOffset(unspecifiedLocal);
+      return new DateTimeOffset(unspecifiedLocal, localOffset).ToUniversalTime();
+    }
+    catch (JSDisconnectedException)
+    {
+      var localOffset = Tp.LocalTimeZone.GetUtcOffset(unspecifiedLocal);
+      return new DateTimeOffset(unspecifiedLocal, localOffset).ToUniversalTime();
+    }
   }
 
 #if DEBUG
