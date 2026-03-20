@@ -1,0 +1,33 @@
+# @public = https://bggnrclk-8080.use.devtunnels.ms
+@public = https://nevermac.com
+# enforcer UCM-eRxEc_TutiPIbOS1YYbw
+@channel = UCM-eRxEc_TutiPIbOS1YYbw
+@handle = @EnforcerOfficial
+@video = CLlQY3yyCvY
+@auth = Basic {{$dotenv BASIC_AUTH}}
+
+### Manually add a video to the db
+POST {{public}}/add-video/{{video}}
+Content-Type: application/json
+Authorization: {{auth}}
+
+### Manually add a channel to the db
+POST {{public}}/add-channel/{{channel}}
+Content-Type: application/json
+Authorization: {{auth}}
+
+### Manually remove a channel to the db
+POST {{public}}/remove-channel/{{channel}}
+Content-Type: application/json
+Authorization: {{auth}}
+
+### Manually add a channel handle to the db
+POST {{public}}/add-channel-handle/{{handle}}
+Content-Type: application/json
+Authorization: {{auth}}
+
+### Manually remove a channel handle from the db
+POST {{public}}/remove-channel-handle/{{handle}}
+Content-Type: application/json
+Authorization: {{auth}}
+

@@ -1,0 +1,31 @@
+<script type="module" src="@Assets["_content/NMAC.Ui/Components/Layout/ReconnectModal.razor.js"]"></script>
+
+<dialog id="components-reconnect-modal" data-nosnippet aria-labelledby="components-reconnect-title">
+    <div class="components-reconnect-container">
+        <div class="components-rejoining-animation" aria-hidden="true" role="presentation">
+            <div></div>
+            <div></div>
+        </div>
+        <p id="components-reconnect-title" class="components-reconnect-first-attempt-visible has-text-weight-semibold has-text-text-bold">
+            Rejoining the server...
+        </p>
+        <p class="components-reconnect-repeated-attempt-visible has-text-text-bold">
+            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+        </p>
+        <p class="components-reconnect-failed-visible has-text-danger-bold has-text-weight-semibold">
+            Failed to rejoin.<br />Please retry or reload the page.
+        </p>
+        <button id="components-reconnect-button" class="button components-reconnect-failed-visible" aria-label="Retry reconnection">
+            Retry
+        </button>
+        <p class="components-pause-visible has-text-warning-bold has-text-weight-semibold">
+            The session has been paused by the server.
+        </p>
+        <p class="components-resume-failed-visible has-text-danger-bold has-text-weight-semibold">
+            Failed to resume the session.<br />Please retry or reload the page.
+        </p>
+        <button id="components-resume-button" class="button components-pause-visible components-resume-failed-visible" aria-label="Resume session">
+            Resume
+        </button>
+    </div>
+</dialog>

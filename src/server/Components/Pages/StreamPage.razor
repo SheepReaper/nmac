@@ -1,0 +1,638 @@
+@page "/streams/{VideoId}"
+@using Microsoft.AspNetCore.Components.Forms
+
+@inherits StreamPageBase
+@implements IDisposable
+
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+
+@inject ILiveStreamDashboardQueryService QueryService
+@inject ILiveStreamUpdateNotifier UpdateNotifier
+@inject TimeProvider Tp
+@inject ProtectedLocalStorage ProtectedLocalStore
+
+<section class="box nmac-surface">
+  <div class="is-flex is-align-items-center is-justify-content-space-between is-flex-wrap-wrap gap-2 mb-4">
+    <div class="field is-grouped is-grouped-multiline mb-0">
+      <p class="control">
+        <a class="button has-background-primary-soft has-text-primary-bold" href="@WithCurrentTheme("/")">Back to
+          streams</a>
+        </p>
+        <p class="control">
+          <button class="button has-background-link-soft has-text-link-bold" @onclick="@(async () => await ReloadAsync())"
+                  disabled="@_isLoading">Refresh</button>
+        </p>
+        <p class="control">
+          <span class="select is-link">
+            <select value="@_sort" @onchange="OnSortChanged">
+              <option value="@SuperChatSort.UsdDescThenOldest">USD Value first then oldest</option>
+              <option value="@SuperChatSort.AuthorThenOldest">Author then oldest</option>
+              <option value="@SuperChatSort.ArrivalOrder">Arrival order</option>
+            </select>
+          </span>
+        </p>
+        <p class="control nmac-checkbox-control">
+          <label class="checkbox has-text-weight-medium">
+            <input type="checkbox" @bind="_showAcknowledged" @bind:after="OnShowAcknowledgedChanged" />
+            Show acknowledged
+          </label>
+        </p>
+        <p class="control nmac-target-time-control">
+          <label class="label is-small">Target Stream End time</label>
+          <InputDate TValue="DateTime" class="input" Type="InputDateType.DateTimeLocal"
+                     title="Choose the target time the stream should end." @bind-Value="_targetCompletionLocalInput" @bind-Value:after="OnTargetCompletionChanged" />
+          @if (IsDebugBuild)
+          {
+            <small class="has-text-soft">
+              Debug: local @FormatDebugDateTime(_targetCompletionLocalInput) | utc @FormatDebugDateTime(_targetCompletionUtc.UtcDateTime) | now @FormatDebugDateTime(Tp.GetUtcNow().UtcDateTime)
+            </small>
+          }
+        </p>
+        <p class="control is-align-self-flex-end">
+          <a class="button is-link" href="@BuildCsvDataUri()" download="@BuildExportFilename()">Export CSV</a>
+        </p>
+      </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+      <div class="notification has-background-warning-soft has-text-warning-bold">@_error</div>
+    }
+
+    @if (_dashboard is not null)
+    {
+      <h1 class="title is-5 mb-2">@(_dashboard.Title ?? _dashboard.VideoId)</h1>
+      <p class="mb-4">
+        <a class="tag is-medium mr-2 has-background-info-soft has-text-info-bold"
+           href="@BuildStudioCommentsInboxUrl(_dashboard.VideoId)"
+            title="Open in YouTube Studio comment inbox"
+           rel="noopener noreferrer"
+           target="_blank">@_dashboard.VideoId</a>
+        <span
+          class="tag is-medium @(_dashboard.IsLive ? "has-background-success-soft has-text-success-bold" : "has-background-link-soft has-text-link-bold")">@(_dashboard.IsLive
+                          ? "Live" :
+                                "Archived")</span>
+        </p>
+
+        <nav class="level nmac-stat-strip">
+          <div class="level-item has-text-centered">
+            <div>
+              <p class="heading">Superchats</p>
+              <p class="title is-4 has-text-link">@_dashboard.TotalSuperChatCount</p>
+            </div>
+          </div>
+          <div class="level-item has-text-centered">
+            <div>
+              <p class="heading">Total USD</p>
+              <p class="title is-4 has-text-primary">@_dashboard.TotalUsd.ToString("$0.00")</p>
+            </div>
+          </div>
+          <div class="level-item has-text-centered">
+            <div>
+              <p class="heading" title="The average number of Super Chats posted per minute.">Arrival / min</p>
+              <p class="title is-4 has-text-info">@_dashboard.ArrivalRatePerMinute.ToString("0.##")</p>
+            </div>
+          </div>
+          <div class="level-item has-text-centered">
+            <div>
+              <p class="heading" title="Super Chats left to acknowledge.">Remaining</p>
+              <p class="title is-4 has-text-warning-bold">@RemainingCount</p>
+            </div>
+          </div>
+          <div class="level-item has-text-centered">
+            <div>
+              <p class="heading"
+                 title="You need to acknowledge Super Chats this pace if you want to be done by your selected time.">Req. acks
+                / min</p>
+                <p class="title is-4 has-text-danger">@RequiredAckRatePerMinute.ToString("0.##")</p>
+              </div>
+            </div>
+          </nav>
+        }
+      </section>
+
+      @if (_dashboard is not null)
+      {
+        <section class="box nmac-surface">
+          <h2 class="title is-5">Top donators (USD)</h2>
+          @if (_dashboard.TopDonators.Count == 0)
+          {
+            <div class="notification has-background-info-soft has-text-info-bold mb-0">No USD superchats available yet.</div>
+          }
+          else
+          {
+            <div class="table-container">
+              <table class="table is-fullwidth is-hoverable is-striped is-narrow">
+                <thead>
+                  <tr>
+                    <th>Donator</th>
+                    <th>Total USD</th>
+                    <th>Superchats</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach (var donor in _dashboard.TopDonators)
+                  {
+                    var donorChannelUrl = BuildAuthorChannelUrl(donor.DonatorKey);
+                    <tr>
+                      <td title="@BuildAliasTooltip(donor.Aliases, donor.DisplayName)">
+                        @if (donorChannelUrl is not null)
+                        {
+                          <a class="has-text-link" href="@donorChannelUrl" rel="noopener noreferrer" target="_blank">@donor.DisplayName</a>
+                        }
+                        else
+                        {
+                          <span>@donor.DisplayName</span>
+                        }
+                        @if (GetAliasCount(donor.Aliases, donor.DisplayName) > 0)
+                        {
+                          <span class="tag is-small has-background-link-soft has-text-link-bold ml-2">
+                            AKA @GetAliasCount(donor.Aliases, donor.DisplayName)
+                          </span>
+                        }
+                      </td>
+                      <td>@donor.TotalUsd.ToString("$0.00")</td>
+                      <td>@donor.SuperChatCount</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
+        <section class="box nmac-surface">
+          <h2 class="title is-5">Superchats</h2>
+          @if (_visibleRows.Count == 0)
+          {
+            <div class="notification has-background-info-soft has-text-info-bold mb-0">No superchats to display for current
+              filter.</div>
+            }
+        else
+            {
+              <div class="table-container nmac-chat-table-wrap">
+                <table class="table is-fullwidth is-hoverable is-striped is-narrow">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Author</th>
+                      <th>Amount</th>
+                      <th>Message</th>
+                      <th>Ack state</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @foreach (var row in _visibleRows)
+                    {
+                      var state = GetAckState(row.MessageId);
+                      var authorChannelUrl = BuildAuthorChannelUrl(row.AuthorKey);
+                      <tr>
+                        <td class="nmac-col-nowrap">@FormatTime(row.PublishedAt)</td>
+                        <td>
+                          <p class="has-text-weight-semibold mb-1" title="@BuildAliasTooltip(row.AuthorAliases, row.AuthorDisplayName)">
+                            @if (authorChannelUrl is not null)
+                            {
+                              <a class="has-text-link" href="@authorChannelUrl" rel="noopener noreferrer" target="_blank">@row.AuthorDisplayName</a>
+                            }
+                            else
+                            {
+                              <span>@row.AuthorDisplayName</span>
+                            }
+                            @if (GetAliasCount(row.AuthorAliases, row.AuthorDisplayName) > 0)
+                            {
+                              <span class="tag is-small has-background-link-soft has-text-link-bold ml-2">
+                                AKA @GetAliasCount(row.AuthorAliases, row.AuthorDisplayName)
+                              </span>
+                            }
+                          </p>
+                          @if (row.AuthorOrdinal > 1)
+                          {
+                            <span class="tag is-small has-background-info-soft has-text-info-bold"
+                                  title="Superchat #@row.AuthorOrdinal from this author">#@row.AuthorOrdinal</span>
+                          }
+                        </td>
+                        <td class="nmac-col-nowrap" title="@BuildAmountTooltip(row)">
+                          @FormatAmount(row)
+                          @if (row.UsdEquivalent.HasValue && !string.Equals(row.Currency, "USD", StringComparison.OrdinalIgnoreCase))
+                          {
+                            <br /><small class="has-text-soft">(@row.UsdEquivalent.Value.ToString("$0.00") USD)</small>
+                          }
+                        </td>
+                        <td>@(row.MessageContent ?? string.Empty)</td>
+                        <td class="nmac-col-nowrap"><span class="tag @GetAckTagClass(state)">@state</span></td>
+                        <td class="nmac-col-nowrap">
+                          <div class="row-actions">
+                            <button class="button is-small has-background-success-soft has-text-success-bold"
+                                    @onclick="@(() => SetAckStateAsync(row.MessageId, SuperChatAckState.Thanked))">Thank</button>
+                            <button class="button is-small has-background-link-soft has-text-link-bold"
+                                    @onclick="@(() => SetAckStateAsync(row.MessageId, SuperChatAckState.Glossed))">Gloss Over</button>
+                            @if (_showAcknowledged)
+                            {
+                              <button class="button is-small has-background-warning-soft has-text-warning-bold"
+                                      @onclick="@(() => SetAckStateAsync(row.MessageId, SuperChatAckState.Unthanked))">Unthank</button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </section>
+        }
+
+@code {
+  [Parameter]
+  public required string VideoId { get; set; }
+
+  [CascadingParameter]
+  private AckStateProvider? AckStore { get; set; }
+
+  private LiveStreamDashboard? _dashboard;
+  private readonly Dictionary<string, SuperChatAckState> _ackStates = new(StringComparer.Ordinal);
+  private readonly List<LiveSuperChatRow> _visibleRows = [];
+
+  private IDisposable? _subscription;
+  private Timer? _statsRefreshTimer;
+  private bool _disposed;
+  private bool _isLoading;
+  private bool _browserStateReady;
+  private string? _error;
+  private SuperChatSort _sort = SuperChatSort.UsdDescThenOldest;
+  private bool _showAcknowledged;
+  private DateTimeOffset _targetCompletionUtc;
+  private DateTime _targetCompletionLocalInput;
+
+  private int RemainingCount => _dashboard is null
+    ? 0
+    : _dashboard.SuperChats.Count(row => GetAckState(row.MessageId) == SuperChatAckState.Unthanked);
+
+  private double RequiredAckRatePerMinute
+  {
+    get
+    {
+      var now = Tp.GetUtcNow();
+      var target = _targetCompletionUtc;
+      if (target <= now)
+        return RemainingCount;
+
+      var minutes = (target - now).TotalMinutes;
+      if (minutes <= 0)
+        return RemainingCount;
+
+      return RemainingCount / minutes;
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    CancellationTokenSource cts = new(TimeSpan.FromSeconds(30));
+
+    _targetCompletionUtc = Tp.GetUtcNow().AddHours(1);
+    SyncLocalTargetInputFromUtc();
+
+    await ReloadDashboardAsync(cts.Token);
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender || !RendererInfo.IsInteractive)
+      return;
+
+    _browserStateReady = true;
+
+    if (RendererInfo.IsInteractive)
+    {
+      using CancellationTokenSource initialLoadCts = new(TimeSpan.FromSeconds(30));
+      await LoadStoredTargetCompletionAsync(initialLoadCts.Token);
+      await LoadAckStatesAsync(initialLoadCts.Token);
+    }
+
+    _subscription = UpdateNotifier.Subscribe(VideoId, update =>
+    {
+      var ignored = InvokeAsync(async () =>
+      {
+        using CancellationTokenSource refreshCts = new(TimeSpan.FromSeconds(30));
+        await ReloadDashboardAsync(refreshCts.Token);
+        if (_browserStateReady)
+          await LoadAckStatesAsync(refreshCts.Token);
+
+        StateHasChanged();
+      });
+    });
+
+    _statsRefreshTimer ??= new Timer(_ =>
+    {
+      var ignored = InvokeAsync(async () =>
+      {
+        if (_disposed)
+          return;
+
+        // Reload dashboard so live status and stats stay current (detects stream end).
+        using CancellationTokenSource refreshCts = new(TimeSpan.FromSeconds(30));
+        await ReloadDashboardAsync(refreshCts.Token);
+        StateHasChanged();
+      });
+    }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
+    StateHasChanged();
+  }
+
+  public void Dispose()
+  {
+    _disposed = true;
+    _subscription?.Dispose();
+    _statsRefreshTimer?.Dispose();
+  }
+
+  private async Task ReloadAsync(CancellationToken ct = default)
+  {
+    await ReloadDashboardAsync(ct);
+
+    if (_browserStateReady)
+      await LoadAckStatesAsync(ct);
+  }
+
+  private async Task ReloadDashboardAsync(CancellationToken ct = default)
+  {
+    _isLoading = true;
+    _error = null;
+
+    try
+    {
+      _dashboard = await QueryService.GetStreamDashboardAsync(VideoId, ct);
+      RebuildVisibleRows();
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+      // Time-bounded refresh operations are expected to cancel occasionally.
+    }
+    catch (Exception ex)
+    {
+      _error = ex.Message;
+    }
+    finally
+    {
+      _isLoading = false;
+    }
+  }
+
+  private async Task LoadAckStatesAsync(CancellationToken ct = default)
+  {
+    try
+    {
+      _ackStates.Clear();
+
+      if (AckStore is null) return;
+
+      foreach (var pair in await AckStore.GetAckStatesAsync(VideoId, ct))
+        _ackStates[pair.Key] = pair.Value;
+
+      RebuildVisibleRows();
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+      // Time-bounded refresh operations are expected to cancel occasionally.
+    }
+    catch (Exception ex)
+    {
+      _error = ex.Message;
+    }
+  }
+
+  private async Task LoadStoredTargetCompletionAsync(CancellationToken ct = default)
+  {
+    try
+    {
+      var stored = await ProtectedLocalStore.GetAsync<DateTimeOffset?>($"nmac.target-completion.{VideoId}");
+      if (stored.Success && stored.Value.HasValue)
+      {
+        _targetCompletionUtc = stored.Value.Value.ToUniversalTime();
+        SyncLocalTargetInputFromUtc();
+      }
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+      // Time-bounded refresh operations are expected to cancel occasionally.
+    }
+    catch (Exception ex)
+    {
+      _error = ex.Message;
+    }
+  }
+
+  private async Task SetAckStateAsync(string messageId, SuperChatAckState state)
+  {
+    if (AckStore is null) return;
+
+    _ackStates[messageId] = state;
+
+    await AckStore.SaveAckStatesAsync(VideoId, _ackStates);
+    
+    RebuildVisibleRows();
+  }
+
+  private SuperChatAckState GetAckState(string messageId)
+    => _ackStates.TryGetValue(messageId, out var state)
+      ? state
+      : SuperChatAckState.Unthanked;
+
+  private void RebuildVisibleRows()
+  {
+    _visibleRows.Clear();
+
+    if (_dashboard is null)
+      return;
+
+    IEnumerable<LiveSuperChatRow> rows = _dashboard.SuperChats;
+
+    if (!_showAcknowledged)
+      rows = rows.Where(r => GetAckState(r.MessageId) == SuperChatAckState.Unthanked);
+
+    rows = _sort switch
+    {
+      SuperChatSort.AuthorThenOldest => rows
+        .OrderBy(r => r.AuthorDisplayName, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(r => r.PublishedAt)
+        .ThenBy(r => r.MessageId),
+      SuperChatSort.ArrivalOrder => rows
+        .OrderBy(r => r.PublishedAt)
+        .ThenBy(r => r.MessageId),
+      _ => rows
+        .OrderByDescending(r => r.UsdEquivalent ?? -1m)
+        .ThenBy(r => r.PublishedAt)
+        .ThenBy(r => r.MessageId)
+    };
+
+    _visibleRows.AddRange(rows);
+  }
+
+  private void OnSortChanged(ChangeEventArgs args)
+  {
+    if (args.Value is null)
+      return;
+
+    if (Enum.TryParse<SuperChatSort>(args.Value.ToString(), out var sort))
+    {
+      _sort = sort;
+      RebuildVisibleRows();
+    }
+  }
+
+  private void OnShowAcknowledgedChanged()
+  {
+    RebuildVisibleRows();
+  }
+
+  private async Task OnTargetCompletionChanged()
+  {
+    _targetCompletionUtc = BuildUtcFromLocalInput(_targetCompletionLocalInput);
+    await ProtectedLocalStore.SetAsync($"nmac.target-completion.{VideoId}", _targetCompletionUtc);
+  }
+
+  private void SyncLocalTargetInputFromUtc()
+  {
+    var local = TimeZoneInfo.ConvertTime(_targetCompletionUtc, Tp.LocalTimeZone);
+    _targetCompletionLocalInput = new DateTime(
+      local.Year,
+      local.Month,
+      local.Day,
+      local.Hour,
+      local.Minute,
+      0,
+      DateTimeKind.Unspecified);
+  }
+
+  private DateTimeOffset BuildUtcFromLocalInput(DateTime localInput)
+  {
+    var unspecifiedLocal = DateTime.SpecifyKind(localInput, DateTimeKind.Unspecified);
+    var localOffset = Tp.LocalTimeZone.GetUtcOffset(unspecifiedLocal);
+    return new DateTimeOffset(unspecifiedLocal, localOffset).ToUniversalTime();
+  }
+
+#if DEBUG
+  private static bool IsDebugBuild => true;
+#else
+  private static bool IsDebugBuild => false;
+#endif
+
+  private static string FormatDebugDateTime(DateTime value)
+    => value.ToString("yyyy-MM-dd HH:mm:ss");
+
+  private string BuildCsvDataUri()
+  {
+    if (_dashboard is null)
+      return string.Empty;
+
+    var lines = new List<string>
+    {
+      "MessageId,VideoId,Author,AuthorOrdinal,Currency,AmountMicros,AmountDisplay,UsdEquivalent,PublishedAtUtc,AckState,Message"
+    };
+
+    foreach (var row in _dashboard.SuperChats.OrderBy(r => r.PublishedAt).ThenBy(r => r.MessageId))
+    {
+      var cols = new[]
+      {
+        EscapeCsv(row.MessageId),
+        EscapeCsv(row.VideoId),
+        EscapeCsv(row.AuthorDisplayName),
+        row.AuthorOrdinal.ToString(),
+        EscapeCsv(row.Currency),
+        row.AmountMicros.ToString(),
+        EscapeCsv(row.AmountDisplayString),
+        EscapeCsv(row.UsdEquivalent?.ToString("0.00")),
+        EscapeCsv(row.PublishedAt?.UtcDateTime.ToString("O")),
+        EscapeCsv(GetAckState(row.MessageId).ToString()),
+        EscapeCsv(row.MessageContent)
+      };
+
+      lines.Add(string.Join(',', cols));
+    }
+
+    var csv = string.Join("\n", lines);
+    return $"data:text/csv;charset=utf-8,{Uri.EscapeDataString(csv)}";
+  }
+
+  private string BuildExportFilename()
+  {
+    var date = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+    return $"nmac-{VideoId}-{date}.csv";
+  }
+
+  private static string EscapeCsv(string? value)
+  {
+    if (string.IsNullOrEmpty(value))
+      return string.Empty;
+
+    var escaped = value.Replace("\"", "\"\"");
+    return $"\"{escaped}\"";
+  }
+
+  private static string FormatTime(DateTimeOffset? value)
+    => value?.ToLocalTime().ToString("HH:mm:ss") ?? "-";
+
+  private static string FormatAmount(LiveSuperChatRow row)
+  {
+    if (!string.IsNullOrWhiteSpace(row.AmountDisplayString))
+      return row.AmountDisplayString;
+
+    if (string.Equals(row.Currency, "USD", StringComparison.OrdinalIgnoreCase))
+      return (row.AmountMicros / 1_000_000m).ToString("$0.00");
+
+    return $"{row.AmountMicros / 1_000_000m:0.00} {row.Currency}";
+  }
+
+  private static string? BuildAmountTooltip(LiveSuperChatRow row)
+  {
+    if (string.IsNullOrWhiteSpace(row.Currency) || string.Equals(row.Currency, "USD", StringComparison.OrdinalIgnoreCase))
+      return null;
+
+    return $"Currency: {row.Currency}";
+  }
+
+  private static string? BuildAliasTooltip(IReadOnlyList<string> aliases, string displayName)
+  {
+    if (aliases.Count <= 1)
+      return null;
+
+    var otherAliases = aliases
+      .Where(alias => !string.Equals(alias, displayName, StringComparison.OrdinalIgnoreCase))
+      .ToArray();
+
+    if (otherAliases.Length == 0)
+      return null;
+
+    return $"Also seen as: {string.Join(", ", otherAliases)}";
+  }
+
+  private static int GetAliasCount(IReadOnlyList<string> aliases, string displayName)
+    => aliases.Count(alias => !string.Equals(alias, displayName, StringComparison.OrdinalIgnoreCase));
+
+  private static string BuildStudioCommentsInboxUrl(string videoId)
+    => $"https://studio.youtube.com/video/{Uri.EscapeDataString(videoId)}/comments/inbox";
+
+  private static string? BuildAuthorChannelUrl(string authorKey)
+  {
+    if (string.IsNullOrWhiteSpace(authorKey) ||
+        string.Equals(authorKey, "unknown", StringComparison.OrdinalIgnoreCase) ||
+        authorKey.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+      return null;
+
+    return $"https://www.youtube.com/channel/{Uri.EscapeDataString(authorKey)}";
+  }
+
+  private static string GetAckTagClass(SuperChatAckState state)
+    => state switch
+    {
+      SuperChatAckState.Thanked => "has-background-success-soft has-text-success-bold",
+      SuperChatAckState.Glossed => "has-background-link-soft has-text-link-bold",
+      _ => "has-background-warning-soft has-text-warning-bold"
+    };
+
+  protected override void OnParametersSet()
+  {
+    RebuildVisibleRows();
+  }
+}

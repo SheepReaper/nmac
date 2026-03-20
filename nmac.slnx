@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="src/apphost.cs" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ServiceDefaults/ServiceDefaults.csproj" />
+    <Project Path="src/server/NMAC.csproj" />
+    <Project Path="src/web/NMAC.Ui.csproj" />
+  </Folder>
+</Solution>

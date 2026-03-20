@@ -1,0 +1,5 @@
+.row-actions {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}

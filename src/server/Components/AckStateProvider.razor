@@ -1,0 +1,52 @@
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using System.Text.Json
+
+@inject ProtectedLocalStorage ProtectedLocalStore
+
+<CascadingValue Value="this">
+    @ChildContent
+</CascadingValue>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    public async Task<IReadOnlyDictionary<string, SuperChatAckState>> GetAckStatesAsync(
+        string videoId,
+        CancellationToken ct = default)
+    {
+        var result = await ProtectedLocalStore.GetAsync<string?>(BuildStorageKey(videoId));
+
+        if (!result.Success || string.IsNullOrWhiteSpace(result.Value))
+            return new Dictionary<string, SuperChatAckState>(StringComparer.Ordinal);
+
+        var json = result.Value;
+        var rows = JsonSerializer.Deserialize<List<AckRecord>>(json) ?? [];
+
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.MessageId))
+            .ToDictionary(r => r.MessageId, r => ParseState(r.State), StringComparer.Ordinal);
+    }
+
+    public async Task SaveAckStatesAsync(
+        string videoId,
+        IReadOnlyDictionary<string, SuperChatAckState> states)
+    {
+        var storageKey = BuildStorageKey(videoId);
+        var rows = states.Select(kvp => new AckRecord(kvp.Key, kvp.Value.ToString()));
+
+        var json = JsonSerializer.Serialize(rows);
+        await ProtectedLocalStore.SetAsync(storageKey, json);
+    }
+
+    private static string BuildStorageKey(string videoId) => $"nmac.acks.{videoId}";
+
+    private static SuperChatAckState ParseState(string? state) => state switch
+    {
+        nameof(SuperChatAckState.Thanked) => SuperChatAckState.Thanked,
+        nameof(SuperChatAckState.Glossed) => SuperChatAckState.Glossed,
+        _ => SuperChatAckState.Unthanked
+    };
+
+    private sealed record AckRecord(string MessageId, string State);
+}

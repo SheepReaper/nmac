@@ -1,0 +1,67 @@
+﻿@inject NavigationManager Navigation
+
+<!DOCTYPE html>
+<html lang="en" data-theme="@CurrentThemeAttribute">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <base href="/" />
+
+    <ResourcePreloader />
+
+    <link rel="icon" type="image/svg+xml" href="@Assets["_content/NMAC.Ui/favicon.svg"]" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css">
+    <link rel="stylesheet" href="@Assets["NMAC.styles.css"]" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" 
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" 
+        crossorigin="anonymous" 
+        referrerpolicy="no-referrer" />
+
+    <ImportMap />
+
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer"/>
+    <ReconnectModal />
+
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    private string? CurrentThemeAttribute
+    {
+        get
+        {
+            var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            if (string.IsNullOrWhiteSpace(query))
+                return null;
+
+            foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = segment.Split('=', 2);
+                if (!string.Equals(parts[0], "theme", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (parts.Length < 2)
+                    return null;
+
+                var value = Uri.UnescapeDataString(parts[1]);
+                return value switch
+                {
+                    "light" => "light",
+                    "dark" => "dark",
+                    _ => null
+                };
+            }
+
+            return null;
+        }
+    }
+}

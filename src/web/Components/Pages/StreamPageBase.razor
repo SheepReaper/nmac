@@ -1,0 +1,42 @@
+@inject NavigationManager Navigation
+
+@code {
+	protected string? CurrentThemeAttribute
+	{
+		get
+		{
+			var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+			if (string.IsNullOrWhiteSpace(query))
+				return null;
+
+			foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+			{
+				var parts = segment.Split('=', 2);
+				if (!string.Equals(parts[0], "theme", StringComparison.OrdinalIgnoreCase))
+					continue;
+
+				if (parts.Length < 2)
+					return null;
+
+				var value = Uri.UnescapeDataString(parts[1]);
+				return value switch
+				{
+					"light" => "light",
+					"dark" => "dark",
+					_ => null
+				};
+			}
+
+			return null;
+		}
+	}
+
+	protected string WithCurrentTheme(string uri)
+	{
+		if (string.IsNullOrWhiteSpace(CurrentThemeAttribute))
+			return uri;
+
+		var separator = uri.Contains('?') ? '&' : '?';
+		return $"{uri}{separator}theme={CurrentThemeAttribute}";
+	}
+}

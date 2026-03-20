@@ -1,0 +1,145 @@
+@page "/"
+
+@inherits StreamPageBase
+@implements IDisposable
+
+@inject ILiveStreamDashboardQueryService QueryService
+@inject ILiveStreamUpdateNotifier UpdateNotifier
+
+<section class="box nmac-surface">
+  <div class="is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between gap-3 mb-4">
+    <h1 class="title is-4 mb-0">Stream Catalog</h1>
+    <div class="field is-grouped mb-0">
+      <div class="control">
+        <button class="button has-background-link-soft has-text-link-bold" @onclick="LoadAsync" disabled="@_isLoading">
+          <span>Refresh</span>
+        </button>
+      </div>
+      <div class="control nmac-checkbox-control">
+        <label class="checkbox has-text-weight-medium">
+          <input type="checkbox" @bind="_showAllDiscovered" @bind:after="LoadAsync" />
+          Show all discovered videos
+        </label>
+      </div>
+      @if (_isLoading)
+      {
+        <div class="control">
+          <progress class="progress is-small is-info mb-0 nmac-progress" max="100">Loading</progress>
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (!string.IsNullOrWhiteSpace(_error))
+  {
+    <div class="notification has-background-warning-soft has-text-warning-bold">@_error</div>
+  }
+
+  @if (_streams.Count == 0 && !_isLoading)
+  {
+    <div class="notification has-background-info-soft has-text-info-bold mb-0">No streams are available yet.</div>
+  }
+  else if (_streams.Count > 0)
+  {
+    <div class="table-container">
+      <table class="table is-fullwidth is-hoverable is-striped is-narrow">
+      <thead>
+        <tr>
+          <th>Stream</th>
+          <th>Status</th>
+          <th>Superchats</th>
+          <th>Total USD</th>
+          <th>Last activity</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var stream in _streams)
+        {
+          <tr>
+            <td>
+              <p class="has-text-weight-semibold mb-1">@(stream.Title ?? stream.VideoId)</p>
+              <a class="tag is-small has-background-info-soft has-text-info-bold"
+                 href="@BuildStudioCommentsInboxUrl(stream.VideoId)"
+                  title="Open in YouTube Studio comment inbox"
+                 rel="noopener noreferrer"
+                 target="_blank">@stream.VideoId</a>
+            </td>
+            <td class="nmac-col-nowrap">
+              <span class="tag @(stream.IsLive ? "has-background-success-soft has-text-success-bold" : "has-background-link-soft has-text-link-bold")">
+                @(stream.IsLive ? "Live" : "Archived")
+              </span>
+            </td>
+            <td>@stream.SuperChatCount</td>
+            <td class="nmac-col-nowrap">@stream.TotalUsd.ToString("$0.00")</td>
+            <td class="nmac-col-nowrap">@FormatTime(stream.LastSuperChatAt ?? stream.LastVideoUpdateAt)</td>
+            <td class="nmac-col-nowrap">
+              <a class="button is-small is-link" href="@WithCurrentTheme($"/streams/{stream.VideoId}")">Open</a>
+            </td>
+          </tr>
+        }
+      </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+@code {
+  private bool _isLoading;
+  private bool _showAllDiscovered;
+  private string? _error;
+  private List<LiveStreamListItem> _streams = [];
+  private IDisposable? _subscription;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  protected override Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender || !RendererInfo.IsInteractive)
+      return Task.CompletedTask;
+
+    _subscription = UpdateNotifier.SubscribeAll(_ =>
+    {
+      var ignored = InvokeAsync(async () =>
+      {
+        await LoadAsync();
+        StateHasChanged();
+      });
+    });
+
+    return Task.CompletedTask;
+  }
+
+  public void Dispose()
+  {
+    _subscription?.Dispose();
+  }
+
+  private async Task LoadAsync()
+  {
+    _isLoading = true;
+    _error = null;
+
+    try
+    {
+      _streams = [.. await QueryService.GetStreamsAsync(_showAllDiscovered)];
+    }
+    catch (Exception ex)
+    {
+      _error = ex.Message;
+    }
+    finally
+    {
+      _isLoading = false;
+    }
+  }
+
+  private static string FormatTime(DateTimeOffset? value)
+    => value?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
+
+  private static string BuildStudioCommentsInboxUrl(string videoId)
+    => $"https://studio.youtube.com/video/{Uri.EscapeDataString(videoId)}/comments/inbox";
+}

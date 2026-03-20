@@ -1,0 +1,59 @@
+.nmac-surface {
+    border-radius: 1rem;
+    border: 1px solid var(--bulma-border, currentColor);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--bulma-text, currentColor) 12%, transparent);
+}
+
+.nmac-surface + .nmac-surface {
+    margin-top: 1rem;
+}
+
+.nmac-progress {
+    width: min(14rem, 90vw);
+}
+
+.nmac-toolbar {
+    gap: 0.5rem;
+}
+
+.nmac-checkbox-control {
+    display: flex;
+    align-items: center;
+}
+
+.nmac-target-time-control {
+    min-width: 14.5rem;
+}
+
+.nmac-target-time-control .input {
+    min-width: 14.5rem;
+}
+
+.nmac-chat-table-wrap {
+    max-height: 66vh;
+    overflow: auto;
+}
+
+.nmac-chat-table-wrap thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bulma-body-background-color);
+}
+
+.nmac-stat-strip {
+    border-top: 1px solid color-mix(in srgb, var(--bulma-text, currentColor) 12%, transparent);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+/* Add subtle column dividers between stat items on desktop */
+@media (min-width: 769px) {
+    .nmac-stat-strip .level-item + .level-item {
+        border-left: 1px solid color-mix(in srgb, var(--bulma-text, currentColor) 12%, transparent);
+    }
+}
+
+.nmac-col-nowrap {
+    white-space: nowrap;
+}

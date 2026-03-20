@@ -1,0 +1,5 @@
+.nmac-about-avatar {
+  border-radius: 0.5rem;
+  border: 1px solid var(--bulma-border);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--bulma-text, currentColor) 14%, transparent);
+}

@@ -1,0 +1,153 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <section class="hero is-bold nmac-hero">
+        <div class="hero-body">
+            <div class="container is-max-desktop is-flex is-justify-content-space-between is-align-items-flex-start is-flex-wrap-wrap gap-3">
+                <div>
+                    <p class="title is-3">
+                        <a class="has-text-text-soft" href="@WithCurrentTheme("/")">Never Miss a Chat</a>
+                    </p>
+                    <p class="subtitle is-6 has-text-text-soft">
+                        Spreadsheet-like superchat triage for livestream creators.
+                    </p>
+                </div>
+                <form class="nmac-theme-toggle field has-addons"
+                      role="group"
+                      aria-label="Theme mode"
+                      method="get"
+                      action="@CurrentPath"
+                      data-enhance="false">
+                    @foreach (var parameter in NonThemeQueryParameters)
+                    {
+                        <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
+                    }
+                    <p class="control">
+                        <button type="submit"
+                                name="theme"
+                                value=""
+                                class="button is-small @GetThemeButtonClass(null)"
+                                aria-pressed="@(CurrentThemeAttribute is null)">
+                            Auto
+                        </button>
+                    </p>
+                    <p class="control">
+                        <button type="submit"
+                                name="theme"
+                                value="light"
+                                class="button is-small @GetThemeButtonClass("light")"
+                                aria-pressed="@(CurrentThemeAttribute == "light")">
+                            Light
+                        </button>
+                    </p>
+                    <p class="control">
+                        <button type="submit"
+                                name="theme"
+                                value="dark"
+                                class="button is-small @GetThemeButtonClass("dark")"
+                                aria-pressed="@(CurrentThemeAttribute == "dark")">
+                            Dark
+                        </button>
+                    </p>
+                    <p class="control">
+                        <a class="button is-small has-background-link-soft has-text-link-bold has-tooltip-bottom has-tooltip-subtle nmac-about-shortcut"
+                           data-tooltip="About"
+                           href="@WithCurrentTheme("/about")"
+                           title="About"
+                           aria-label="About">
+                            <span class="icon"><i class="fas fa-question-circle"></i></span>
+                        </a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <main class="section pt-5">
+        <div class="container is-max-desktop">
+            @Body
+        </div>
+    </main>
+</div>
+
+<div id="blazor-error-ui" class="notification has-background-danger-soft has-text-danger-bold" data-nosnippet>
+    <span>An unhandled error has occurred.</span>
+    <a href="." class="button is-small has-background-danger-soft has-text-danger-bold ml-3">Reload</a>
+    <span class="dismiss">x</span>
+</div>
+
+@code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private string? CurrentThemeAttribute
+    {
+        get
+        {
+            var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            if (string.IsNullOrWhiteSpace(query))
+                return null;
+
+            foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = segment.Split('=', 2);
+                if (!string.Equals(parts[0], "theme", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (parts.Length < 2)
+                    return null;
+
+                var value = Uri.UnescapeDataString(parts[1]);
+                return value switch
+                {
+                    "light" => "light",
+                    "dark" => "dark",
+                    _ => null
+                };
+            }
+
+            return null;
+        }
+    }
+
+    private string CurrentPath
+        => Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+
+    private IEnumerable<KeyValuePair<string, string>> NonThemeQueryParameters
+    {
+        get
+        {
+            var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            if (string.IsNullOrWhiteSpace(query))
+                yield break;
+
+            foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = segment.Split('=', 2);
+                if (parts.Length == 0 || string.IsNullOrWhiteSpace(parts[0]))
+                    continue;
+
+                if (string.Equals(parts[0], "theme", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var key = Uri.UnescapeDataString(parts[0]);
+                var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+                yield return new KeyValuePair<string, string>(key, value);
+            }
+        }
+    }
+
+    private string WithCurrentTheme(string uri)
+    {
+        if (string.IsNullOrWhiteSpace(CurrentThemeAttribute))
+            return uri;
+
+        var separator = uri.Contains('?') ? '&' : '?';
+        return $"{uri}{separator}theme={CurrentThemeAttribute}";
+    }
+
+    private string GetThemeButtonClass(string? theme)
+        => string.Equals(CurrentThemeAttribute, theme, StringComparison.OrdinalIgnoreCase)
+            ? "has-background-link-bold has-text-link-soft"
+            : "has-background-link-soft has-text-link-bold";
+}

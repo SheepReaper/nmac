@@ -1,0 +1,12 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "ForEach-Object": true,
+        "uv": true,
+        "where.exe": true,
+        "Get-Command": true,
+        "uvx": true,
+        "ConvertFrom-Json": true,
+        "ConvertTo-Json": true,
+        "Set-Content": true
+    }
+}

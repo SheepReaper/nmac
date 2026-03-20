@@ -1,0 +1,233 @@
+@using System.Security.Cryptography
+@using System.Text
+
+@page "/about"
+@inherits StreamPageBase
+
+@inject AppVersion appVersion
+
+<section class="hero has-background-link-soft">
+    <div class="hero-body">
+        <div class="container">
+            <h1 class="title is-2 has-text-link-bold">About NMAC</h1>
+            <h2 class="subtitle is-5 has-text-link-bold">Never Miss a Chat is focused live stream super chat triage for creators.</h2>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container content">
+        <div class="box">
+            <h3 class="title is-4">What is this site?</h3>
+            <p>
+                NMAC is a lightweight dashboard for live stream creators who need to quickly review and act on super
+                chats and other donation-like events. It emphasizes clarity, fast filtering, and spreadsheet-like
+                scanning so important messages are not missed during or after a broadcast.
+            </p>
+
+            <h3 class="title is-4 mt-5">A one-person labor of love</h3>
+            <p>
+                This project is the work of one developer. It is designed, coded, tested, and operated by a
+                single maintainer while balancing other responsibilities. Features ship incrementally, and priorities
+                are strongly shaped by practical creator workflow feedback.
+            </p>
+
+            <article class="notification has-background-primary-soft has-text-primary-bold">
+                <strong>Please know:</strong> this is a grassroots, one-person project. Your support, whether reporting
+                a bug, suggesting an idea, contributing code, or helping with hosting costs, makes a tangible
+                difference.
+            </article>
+
+            <h3 class="title is-4 mt-5">Why support?</h3>
+            <p>
+                Hosting, monitoring, storage, backups, and third-party APIs all cost money. As usage grows, those costs
+                grow too. If NMAC helps your creator workflow, support helps keep development sustainable and reliability
+                high.
+            </p>
+
+            <div class="columns is-multiline mt-4">
+                <div class="column is-4">
+                    <div class="card">
+                        <div class="card-content">
+                            <p class="title is-5">Patreon</p>
+                            <p class="subtitle is-6">Monthly sponsorship helps plan long-term hosting and improvements.
+                            </p>
+                            <a class="button is-link is-fullwidth" href="https://patreon.com/SheepReaper"
+                                target="_blank" rel="noopener noreferrer">
+                                <span class="icon"><i class="fab fa-patreon"></i></span>
+                                <span>patreon.com/SheepReaper</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="column is-4">
+                    <div class="card">
+                        <div class="card-content">
+                            <p class="title is-5">Ko-fi</p>
+                            <p class="subtitle is-6">One-time support is great for occasional donors.</p>
+                            <a class="button is-info is-fullwidth" href="https://ko-fi.com/sheepreaper" target="_blank"
+                                rel="noopener noreferrer">
+                                <span class="icon"><i class="fas fa-coffee"></i></span>
+                                <span>ko-fi.com/sheepreaper</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="column is-4">
+                    <div class="card">
+                        <div class="card-content">
+                            <p class="title is-5">Buy Me a Coffee</p>
+                            <p class="subtitle is-6">Another easy way to chip in and keep the lights on.</p>
+                            <a class="button is-warning is-fullwidth" href="https://buymeacoffee.com/bgonza8687"
+                                target="_blank" rel="noopener noreferrer">
+                                <span class="icon"><i class="fas fa-mug-hot"></i></span>
+                                <span>buymeacoffee.com/bgonza8687</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="title is-4 mt-5">How to report bugs, request features, or discuss ideas</h3>
+            <p>
+                The best place to report bugs or suggest ideas is on GitHub. That keeps everything public, searchable,
+                and trackable. Please include steps to reproduce, screenshots, and any relevant details. Links:
+            </p>
+
+            <ul>
+                <li><a href="https://github.com/SheepReaper/nmac/discussions" target="_blank"
+                        rel="noopener noreferrer">Discussions (ideas, conversations)</a></li>
+                <li><a href="https://github.com/SheepReaper/nmac/issues" target="_blank"
+                        rel="noopener noreferrer">Issues (bug reports)</a></li>
+                <li><a href="https://github.com/SheepReaper/nmac" target="_blank"
+                        rel="noopener noreferrer">Project repository</a></li>
+            </ul>
+
+            <div class="notification has-background-info-soft has-text-info-bold">
+                When opening an issue, please include: a brief summary, reproduction steps, expected vs actual behavior,
+                and any browser or server logs you can share (redact secrets). If you are proposing a design or workflow
+                change,
+                a short mock or example use case is extremely helpful.
+            </div>
+
+            <h3 class="title is-4 mt-5">Want to help beyond donating?</h3>
+            <p>
+                Contributions come in many forms. Here are a few ways you can help:
+            </p>
+            <ul>
+                <li><strong>Report bugs</strong> — file issues with clear steps.</li>
+                <li><strong>Share ideas</strong> — start a discussion or propose features.</li>
+                <li><strong>Contribute code</strong> — pull requests are welcome. See the repo for contribution
+                    guidelines.</li>
+                <li><strong>Share usage feedback</strong> — let me know where triage flow slows you down.</li>
+                <li><strong>Sponsor runtime costs</strong> — recurring support helps keep infrastructure healthy.</li>
+            </ul>
+
+            <h3 class="title is-4 mt-5">Community & Credits</h3>
+            <p>
+                This project would not exist without feedback from early users and the open-source ecosystem. Thank you
+                to everyone who tests, reports, and shares practical ideas.
+            </p>
+
+            <h3 class="title is-4 mt-5">About the maintainer</h3>
+            <div class="box">
+                <div class="columns is-vcentered">
+                    <div class="column is-three-quarters">
+                        <p>
+                            Hi, I am Bryan (SheepReaper). I built NMAC as a one-person project to solve a real creator
+                            operations problem and demonstrate pragmatic, production-ready cloud engineering in .NET.
+                            The project includes ingestion, persistence, observability, and automation patterns designed
+                            for reliability and cost-conscious operation.
+                        </p>
+                        <p class="mt-3">
+                            I'm actively open to new opportunities. If you'd like a hands-on engineer who understands
+                            end-to-end cloud systems, platform automation, and pragmatic product thinking, let's talk.
+                        </p>
+                        <div class="buttons mt-4">
+                            <a class="button is-primary is-outlined" href="https://www.linkedin.com/in/bryan-gonzalez-2b86ba67/" target="_blank" rel="me noopener noreferrer" title="Bryan on LinkedIn">
+                                <span class="icon"><i class="fab fa-linkedin"></i></span>
+                                <span>LinkedIn</span>
+                            </a>
+                            <a class="button is-danger is-soft" href="https://www.linkedin.com/in/bryan-gonzalez-2b86ba67/" target="_blank" rel="me noopener noreferrer" title="Hire Bryan">
+                                <span class="icon"><i class="fas fa-briefcase"></i></span>
+                                <span>Hire me</span>
+                            </a>
+                            <a class="button is-bold" href="https://github.com/SheepReaper" target="_blank" rel="me noopener noreferrer" title="Bryan on GitHub">
+                                <span class="icon"><i class="fab fa-github"></i></span>
+                                <span>GitHub</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <figure class="image is-128x128">
+                            <img class="nmac-about-avatar" src="@GravatarUrl" alt="Bryan Gonzalez (SheepReaper), maintainer and cloud engineer" loading="lazy" width="128" height="128" />
+                        </figure>
+                    </div>
+                </div>
+            </div>
+
+            <div class="columns mt-4">
+                <div class="column is-half">
+                    <h4 class="title is-6">License</h4>
+                    <p>This project is available on GitHub under the terms described in the repository.</p>
+                </div>
+                <div class="column is-half">
+                    <h4 class="title is-6">Contact</h4>
+                    <p>
+                        For project-related contact and collaboration, use the GitHub repo or open a discussion. If you
+                        need to reach me privately about support or larger sponsorship, include that request in a
+                        discussion and I will
+                        respond with contact options.
+                    </p>
+                </div>
+            </div>
+
+            <div class="level">
+                <div class="level-left">
+                    <div class="level-item">
+                        <a class="button is-soft" href="@WithCurrentTheme("/")">Back to streams</a>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <p class="is-size-7">Version: @Version</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="has-text-centered mt-6">
+                <a class="button is-primary is-large" href="https://github.com/SheepReaper/nmac"
+                    target="_blank" rel="noopener noreferrer">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>View source on GitHub</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private string Version => appVersion.Information;
+
+    private static string GravatarEmail => "bgonza868@gmail.com";
+
+    private static string GravatarUrl => $"https://www.gravatar.com/avatar/{Md5Hash(GravatarEmail.Trim().ToLowerInvariant())}?s=256&d=identicon&r=g";
+
+    private static string Md5Hash(string input)
+    {
+        #pragma warning disable CA5351 // Just using it for encoding
+        using var md5 = MD5.Create();
+        #pragma warning restore CA5351
+
+        var bytes = Encoding.UTF8.GetBytes(input ?? string.Empty);
+        var hash = md5.ComputeHash(bytes);
+        var sb = new StringBuilder(hash.Length * 2);
+
+        foreach (var b in hash)
+            sb.Append(b.ToString("x2"));
+
+        return sb.ToString();
+    }
+}
