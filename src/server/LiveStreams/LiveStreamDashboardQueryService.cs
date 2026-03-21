@@ -34,7 +34,7 @@ public sealed class LiveStreamDashboardQueryService(AppDbContext db, CurrencyCon
 
         var liveVideoIds = await db.LiveChatCaptureSessions
             .AsNoTracking()
-            .Where(s => s.State == "Requested" || s.State == "Running")
+            .Where(s => s.State == LiveCaptureSessionState.Requested || s.State == LiveCaptureSessionState.Running)
             .Select(s => s.VideoId)
             .Distinct()
             .ToListAsync(ct);
@@ -88,7 +88,7 @@ public sealed class LiveStreamDashboardQueryService(AppDbContext db, CurrencyCon
 
         var isLive = await db.LiveChatCaptureSessions
             .AsNoTracking()
-            .AnyAsync(s => s.VideoId == videoId && (s.State == "Requested" || s.State == "Running"), ct);
+            .AnyAsync(s => s.VideoId == videoId && (s.State == LiveCaptureSessionState.Requested || s.State == LiveCaptureSessionState.Running), ct);
 
         var rows = await db.LiveSuperChats
             .AsNoTracking()

@@ -184,7 +184,7 @@ default_modes:
 # (contrary to the memories, which are loaded on demand).
 initial_prompt: |
   ## Project: never-miss-a-chat
-  .NET 10 Aspire solution: AppHost (src/apphost.cs), server API (src/server), Blazor UI (src/web), tester utility (src/tester).
+  .NET 10 Aspire solution: AppHost (src/apphost.cs), server API (src/server), Blazor UI (src/web).
   Uses central package management (Directory.Packages.props) and file-scoped namespaces throughout.
 
   ### Architecture highlights

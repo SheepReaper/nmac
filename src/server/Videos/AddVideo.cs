@@ -12,10 +12,10 @@ public partial class AddVideo(
     ILogger<AddVideo> logger
     ) : IUseCase
 {
-    [LoggerMessage(0, LogLevel.Information, "Manually adding video with ID: {VideoId}")]
+    [LoggerMessage(5005, LogLevel.Information, "Manually adding video with ID: {VideoId}")]
     private partial void LogAddingVideo(string videoId);
 
-    private async Task HandleAsync(string videoId)
+    private async Task<IResult> HandleAsync(string videoId, CancellationToken ct)
     {
         Activity.Current?.AddBaggage("videoId", videoId);
         Activity.Current?.AddBaggage("triggeredBy", "manual");
@@ -23,6 +23,8 @@ public partial class AddVideo(
         LogAddingVideo(videoId);
 
         await bus.PublishAsync(new VideoAdded(videoId));
+
+        return Results.Accepted();
     }
 
     public class Endpoint : IEndpoint
@@ -30,9 +32,10 @@ public partial class AddVideo(
         public void MapEndpoint(IEndpointRouteBuilder endpoints)
         {
             endpoints.MapPost("add-video/{videoId}", async (
-                string videoId, 
-                AddVideo useCase) => await useCase.HandleAsync(videoId))
-                .RequireAuthorization("DeveloperEndpointsBasicAuth");
+                string videoId,
+                AddVideo useCase,
+                CancellationToken ct) => await useCase.HandleAsync(videoId, ct))
+                .RequireAuthorization(DeveloperBasicAuthOptions.DeveloperEndpointsPolicy);
         }
     }
 }

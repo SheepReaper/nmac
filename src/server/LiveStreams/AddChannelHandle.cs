@@ -11,7 +11,7 @@ public partial class AddChannelHandle(
 ) : IUseCase
 {
     [LoggerMessage(6201, LogLevel.Information, "Manually adding channel live-detection handle: {Handle}")]
-    partial void LogAddingHandle(string handle);
+    private partial void LogAddingHandle(string handle);
 
     private async Task<IResult> HandleAsync(string handle, CancellationToken ct)
     {
@@ -51,7 +51,7 @@ public partial class AddChannelHandle(
                 string handle,
                 AddChannelHandle useCase,
                 CancellationToken ct) => await useCase.HandleAsync(handle, ct))
-                .RequireAuthorization("DeveloperEndpointsBasicAuth");
+                .RequireAuthorization(DeveloperBasicAuthOptions.DeveloperEndpointsPolicy);
         }
     }
 }

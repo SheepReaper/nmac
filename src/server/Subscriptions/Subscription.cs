@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
+using NMAC.Subscriptions.WebSub;
+
 namespace NMAC.Subscriptions;
 
 public class Subscription
@@ -12,8 +14,7 @@ public class Subscription
     [MaxLength(64)]
     public string? Secret { get; set; }
 
-    [MaxLength(11)]
-    public string? Mode { get; set; }
+    public HubMode? Mode { get; set; }
 
     public DateTimeOffset? Expiration { get; set; }
 

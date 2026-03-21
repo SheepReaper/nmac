@@ -22,6 +22,7 @@ public class YTVideo
 
     public Uri? WatchUrl { get; set; }
 
+    // YouTube descriptions are intentionally stored as unbounded text.
     public string? Description { get; set; }
 
     public Uri? ThumbnailUrl { get; set; }

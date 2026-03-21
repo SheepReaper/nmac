@@ -17,7 +17,7 @@ public partial class SubscribeToChannelHandler(
     [LoggerMessage(EventId = 3103, Level = LogLevel.Error, Message = "Failed to subscribe to channel {ChannelId}.")]
     private partial void LogSubscribeToChannelFailed(string channelId);
 
-    public async Task HandleAsync(SubscribeToChannel command, CancellationToken ct)
+    public async Task Handle(SubscribeToChannel command, CancellationToken ct)
     {
         LogSubscribingToChannel(command.ChannelId);
 

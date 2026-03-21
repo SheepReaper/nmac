@@ -69,15 +69,16 @@ public partial class ChannelLiveDetectionWorker(
 
         LogWorkerStarted(0, (int)pollInterval.TotalSeconds, (int)recheckInterval.TotalSeconds);
 
+        using var timer = new PeriodicTimer(pollInterval);
+
         try
         {
-            while (!stoppingToken.IsCancellationRequested)
+            do
             {
                 var handles = await GetEnabledHandlesAsync(stoppingToken);
                 if (handles.Length == 0)
                 {
                     LogNoEnabledHandles();
-                    await Task.Delay(pollInterval, stoppingToken);
                     continue;
                 }
 
@@ -99,9 +100,8 @@ public partial class ChannelLiveDetectionWorker(
                         LogProbeFailed(handle, ex.Message);
                     }
                 }
-
-                await Task.Delay(pollInterval, stoppingToken);
             }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -173,7 +173,7 @@ public partial class ChannelLiveDetectionWorker(
     private async Task<bool> HasActiveCaptureSessionAsync(AppDbContext db, string videoId, CancellationToken ct)
     {
         return await db.LiveChatCaptureSessions.AnyAsync(
-            s => s.VideoId == videoId && (s.State == "Requested" || s.State == "Running"),
+            s => s.VideoId == videoId && (s.State == LiveCaptureSessionState.Requested || s.State == LiveCaptureSessionState.Running),
             ct);
     }
 

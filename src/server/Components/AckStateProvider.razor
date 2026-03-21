@@ -39,6 +39,7 @@
         await ProtectedLocalStore.SetAsync(storageKey, json);
     }
 
+    // Storage key format: nmac.acks.{videoId}
     private static string BuildStorageKey(string videoId) => $"nmac.acks.{videoId}";
 
     private static SuperChatAckState ParseState(string? state) => state switch

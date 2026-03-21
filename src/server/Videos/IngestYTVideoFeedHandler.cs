@@ -20,19 +20,19 @@ public partial class IngestYTVideoFeedHandler(
     XmlSerializer xmlSerializer,
     ILogger<IngestYTVideoFeedHandler> logger)
 {
-    [LoggerMessage(EventId = 2201, Level = LogLevel.Warning, Message = "Failed to parse Atom feed for subscription {TopicUri}. Message: {Message}")]
+    [LoggerMessage(EventId = 5201, Level = LogLevel.Warning, Message = "Failed to parse Atom feed for subscription {TopicUri}. Message: {Message}")]
     private partial void LogFeedParseFailed(Uri topicUri, string message);
 
-    [LoggerMessage(EventId = 2202, Level = LogLevel.Information, Message = "Processed {NewCount} new and {UpdatedCount} updated YTVideo snapshots for subscription {TopicUri}.")]
+    [LoggerMessage(EventId = 5202, Level = LogLevel.Information, Message = "Processed {NewCount} new and {UpdatedCount} updated YTVideo snapshots for subscription {TopicUri}.")]
     private partial void LogYTVideosProcessed(int newCount, int updatedCount, Uri topicUri);
 
-    [LoggerMessage(EventId = 2203, Level = LogLevel.Error, Message = "Failed to deserialize Atom feed for subscription {TopicUri}.")]
+    [LoggerMessage(EventId = 5203, Level = LogLevel.Error, Message = "Failed to deserialize Atom feed for subscription {TopicUri}.")]
     private partial void LogDeserializationFailed(Uri topicUri);
 
-    [LoggerMessage(EventId = 2204, Level = LogLevel.Warning, Message = "Malformed link tags detected for subscription {TopicUri}. Retrying parse after repair.")]
+    [LoggerMessage(EventId = 5204, Level = LogLevel.Warning, Message = "Malformed link tags detected for subscription {TopicUri}. Retrying parse after repair.")]
     private partial void LogRetryingAfterLinkRepair(Uri topicUri);
 
-    [LoggerMessage(EventId = 2205, Level = LogLevel.Warning, Message = "Error during Atom feed deserialization. Message: {Message}")]
+    [LoggerMessage(EventId = 5205, Level = LogLevel.Warning, Message = "Error during Atom feed deserialization. Message: {Message}")]
     private partial void LogDeserializationError(string? message);
 
     private static readonly Regex UnclosedLinkRegex = MyRegex();
@@ -129,7 +129,7 @@ public partial class IngestYTVideoFeedHandler(
         return [.. deduped.Values];
     }
 
-    public async Task HandleAsync(IngestYTVideoFeed command, CancellationToken ct)
+    public async Task Handle(IngestYTVideoFeed command, CancellationToken ct)
     {
         try
         {
@@ -166,12 +166,6 @@ public partial class IngestYTVideoFeedHandler(
             {
                 var outcome = await db.ExecuteUpsertAsync(video, ct);
 
-                if (outcome == YTVideoUpsertOutcome.Inserted)
-                {
-                    await bus.PublishAsync(new VideoDiscovered(video.VideoId));
-                    continue;
-                }
-
                 if (outcome == YTVideoUpsertOutcome.Updated)
                 {
                     await bus.PublishAsync(new VideoUpdated(video.VideoId));
@@ -187,11 +181,7 @@ public partial class IngestYTVideoFeedHandler(
                     await bus.PublishAsync(new VideoUpdated(video.VideoId));
                     updatedCount++;
                 }
-                else if (outcome == YTVideoUpsertOutcome.Inserted)
-                {
-                    // Handles race conditions between pre-query and write.
-                    await bus.PublishAsync(new VideoDiscovered(video.VideoId));
-                }
+
             }
 
             LogYTVideosProcessed(newCount, updatedCount, command.TopicUri);

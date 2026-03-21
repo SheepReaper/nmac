@@ -7,22 +7,16 @@ using NMAC.Core;
 
 namespace NMAC.Videos;
 
-public enum YTVideoUpsertOutcome
+internal static class QueryExtensions
 {
-    Unchanged = 0,
-    Inserted = 1,
-    Updated = 2
-}
-
-public static class EFCoreExtensions
-{
-    public static async Task<YTVideoUpsertOutcome> ExecuteUpsertAsync(this AppDbContext db, YTVideo entity, CancellationToken cancellationToken = default)
+    internal static async Task<YTVideoUpsertOutcome> ExecuteUpsertAsync(this AppDbContext db, YTVideo entity, CancellationToken cancellationToken = default)
     {
         var topicUri = entity.TopicUri.ToString();
         var watchUrl = entity.WatchUrl?.ToString();
         var thumbnailUrl = entity.ThumbnailUrl?.ToString();
 
-        // Keep only the newest known state for each YouTube video and detect insert/update/no-op.
+        // Use raw SQL here because this single statement performs an atomic upsert and
+        // returns inserted/updated/unchanged outcome in one round-trip.
         var strategy = db.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync(async () =>

@@ -22,7 +22,6 @@ A tool for YouTube livestream creators to track and triage superchats (donations
 | `src/web/NMAC.Ui.csproj` | Razor Class Library; Blazor components, UI contracts, JS interop |
 | `src/ServiceDefaults/ServiceDefaults.csproj` | Shared Aspire service defaults (telemetry, health, resilience) |
 | `src/apphost.cs` | Aspire AppHost — orchestrates DB container + API |
-| `src/tester/` | Manual console test app for WebSub notifications |
 
 ## Domain Concepts
 - **Subscription** — WebSub subscription to a YouTube channel's Atom feed

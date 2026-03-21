@@ -53,7 +53,7 @@ public partial class LiveChatStreamProcessor(
     private partial void LogMaxRetriesExceeded(string videoId, int maxRetries, string lastError);
 
     [LoggerMessage(EventId = 7011, Level = LogLevel.Information, Message = "Stopped listening to live chat {LiveChatId} for video {VideoId}. CompletionStatus={CompletionStatus}.")]
-    private partial void LogStreamCompleted(string videoId, string liveChatId, string completionStatus);
+    private partial void LogStreamCompleted(string videoId, string liveChatId, LiveChatCompletionStatus completionStatus);
 
     [LoggerMessage(EventId = 7012, Level = LogLevel.Information, Message = "Reconnect delay for video {VideoId}: {DelayMs}ms ({Reason}).")]
     private partial void LogReconnectDelayChosen(string videoId, int delayMs, string reason);
@@ -143,12 +143,13 @@ public partial class LiveChatStreamProcessor(
         var totalSuperChatsPersisted = 0;
         var totalFundingDonationsPersisted = 0;
 
-        void EmitSessionTelemetry(string outcome)
+        void EmitSessionTelemetry(LiveChatCompletionStatus outcome)
         {
+            var outcomeStr = outcome.ToString();
             var estimatedQuotaUnits = totalConnectionAttempts * StreamListCallCostUnits;
             LogSessionTelemetry(
                 session.VideoId,
-                outcome,
+                outcomeStr,
                 totalConnectionAttempts,
                 rolloverReconnects,
                 rpcReconnects,
@@ -160,7 +161,7 @@ public partial class LiveChatStreamProcessor(
 
             SessionEstimatedQuotaUnitsCounter.Add(
                 estimatedQuotaUnits,
-                new KeyValuePair<string, object?>("outcome", outcome)
+                new KeyValuePair<string, object?>("outcome", outcomeStr)
             );
         }
 
@@ -258,7 +259,7 @@ public partial class LiveChatStreamProcessor(
                 .FirstAsync(s => s.SessionId == sessionId, ct);
 
             // Update session state to completed
-            record.State = "Completed";
+            record.State = LiveCaptureSessionState.Completed;
             record.CompletedAt = tp.GetUtcNow();
             if (lastMessageAt.HasValue)
                 record.LastMessageAt = lastMessageAt.Value;

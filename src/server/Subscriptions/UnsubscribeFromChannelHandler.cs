@@ -25,7 +25,7 @@ public partial class UnsubscribeFromChannelHandler(
     [LoggerMessage(EventId = 3115, Level = LogLevel.Information, Message = "Successfully requested unsubscription for channel {ChannelId}.")]
     private partial void LogUnsubscribedChannel(string channelId);
 
-    public async Task HandleAsync(UnsubscribeFromChannel command, CancellationToken ct)
+    public async Task Handle(UnsubscribeFromChannel command, CancellationToken ct)
     {
         LogUnsubscribingChannel(command.ChannelId);
 

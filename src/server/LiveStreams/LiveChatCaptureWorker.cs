@@ -26,7 +26,7 @@ public partial class LiveChatCaptureWorker(
     private partial void LogSessionCompleted(Guid sessionId);
 
     [LoggerMessage(EventId = 7105, Level = LogLevel.Information, Message = "Reclaimed stale session {SessionId} for live chat {LiveChatId}.")]
-    private partial void LogStaleSesionReclaimed(Guid sessionId, string liveChatId);
+    private partial void LogStaleSessionReclaimed(Guid sessionId, string liveChatId);
 
     [LoggerMessage(EventId = 7106, Level = LogLevel.Information, Message = "Live chat capture worker stopped.")]
     private partial void LogWorkerStopped();
@@ -57,7 +57,7 @@ public partial class LiveChatCaptureWorker(
                         LogProcessingSession(claimed.SessionId, claimed.LiveChatId);
 
                         if (claimed.ReclaimedStale)
-                            LogStaleSesionReclaimed(claimed.SessionId, claimed.LiveChatId);
+                            LogStaleSessionReclaimed(claimed.SessionId, claimed.LiveChatId);
 
                         activeTasks.Add(ProcessClaimedSessionAsync(claimed.SessionId, stoppingToken));
                     }
@@ -113,8 +113,8 @@ public partial class LiveChatCaptureWorker(
         IQueryable<LiveChatCaptureSession> query = db.LiveChatCaptureSessions;
 
         query = includeStaleRunning
-            ? query.Where(s => s.State == "Requested" || (s.State == "Running" && (s.LastAttemptAt ?? DateTimeOffset.MinValue) < thresholdTime))
-            : query.Where(s => s.State == "Requested");
+            ? query.Where(s => s.State == LiveCaptureSessionState.Requested || (s.State == LiveCaptureSessionState.Running && (s.LastAttemptAt ?? DateTimeOffset.MinValue) < thresholdTime))
+            : query.Where(s => s.State == LiveCaptureSessionState.Requested);
 
         var candidates = await query
             .OrderBy(s => s.CreatedAt)
@@ -129,8 +129,8 @@ public partial class LiveChatCaptureWorker(
 
         foreach (var session in candidates)
         {
-            var reclaimedStale = session.State == "Running";
-            session.State = "Running";
+            var reclaimedStale = session.State == LiveCaptureSessionState.Running;
+            session.State = LiveCaptureSessionState.Running;
             session.StartedAt ??= now;
             session.LastAttemptAt = now;
             claimed.Add(new ClaimedSession(session.SessionId, session.LiveChatId, reclaimedStale));
@@ -169,7 +169,7 @@ public partial class LiveChatCaptureWorker(
 
             session.LastError = "Processor returned unsuccessful result.";
             session.RetryCount++;
-            session.State = "Requested";
+            session.State = LiveCaptureSessionState.Requested;
             session.LastAttemptAt = tp.GetUtcNow();
             await db.SaveChangesAsync(ct);
 
@@ -193,7 +193,7 @@ public partial class LiveChatCaptureWorker(
             // On failure: store the error, increment retry count, reset to Requested for retry.
             session.LastError = ex.Message;
             session.RetryCount++;
-            session.State = "Requested";
+            session.State = LiveCaptureSessionState.Requested;
             session.LastAttemptAt = tp.GetUtcNow();
             await db.SaveChangesAsync(ct);
 

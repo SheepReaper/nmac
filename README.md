@@ -19,7 +19,6 @@ src/
   server/NMAC.csproj      # Backend: API, workers, database, Blazor host
   web/NMAC.Ui.csproj      # Razor UI component library
   ServiceDefaults/        # Shared Aspire service configuration
-  tester/                 # Manual test utilities
 infra/                    # Docker Compose + Cloudflare Tunnel (not tracked)
 ```
 

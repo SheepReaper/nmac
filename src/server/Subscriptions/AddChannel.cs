@@ -12,10 +12,10 @@ public partial class AddChannel(
     IMessageBus bus
 ) : IUseCase
 {
-    [LoggerMessage(0, LogLevel.Information, "Manually adding channel with ID: {ChannelId}")]
+    [LoggerMessage(1101, LogLevel.Information, "Manually adding channel with ID: {ChannelId}")]
     private partial void LogAddingChannel(string channelId);
     
-    private async Task<IResult> HandleAsync(string channelId)
+    private async Task<IResult> HandleAsync(string channelId, CancellationToken ct)
     {
         LogAddingChannel(channelId);
 
@@ -31,9 +31,10 @@ public partial class AddChannel(
         public void MapEndpoint(IEndpointRouteBuilder endpoints)
         {
             endpoints.MapPost("add-channel/{channelId}", async (
-                string channelId, 
-                AddChannel useCase) => await useCase.HandleAsync(channelId))
-                .RequireAuthorization("DeveloperEndpointsBasicAuth");
+                string channelId,
+                AddChannel useCase,
+                CancellationToken ct) => await useCase.HandleAsync(channelId, ct))
+                .RequireAuthorization(DeveloperBasicAuthOptions.DeveloperEndpointsPolicy);
         }
     }
 }

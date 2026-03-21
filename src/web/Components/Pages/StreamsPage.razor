@@ -1,6 +1,6 @@
 @page "/"
 
-@inherits StreamPageBase
+@inherits StreamContextBase
 @implements IDisposable
 
 @inject ILiveStreamDashboardQueryService QueryService
@@ -17,7 +17,7 @@
       </div>
       <div class="control nmac-checkbox-control">
         <label class="checkbox has-text-weight-medium">
-          <input type="checkbox" @bind="_showAllDiscovered" @bind:after="LoadAsync" />
+          <input type="checkbox" @bind="ShowAllDiscovered" @bind:after="LoadAsync" />
           Show all discovered videos
         </label>
       </div>
@@ -86,7 +86,7 @@
 
 @code {
   private bool _isLoading;
-  private bool _showAllDiscovered;
+  private bool ShowAllDiscovered { get; set; }
   private string? _error;
   private List<LiveStreamListItem> _streams = [];
   private IDisposable? _subscription;
@@ -125,7 +125,7 @@
 
     try
     {
-      _streams = [.. await QueryService.GetStreamsAsync(_showAllDiscovered)];
+      _streams = [.. await QueryService.GetStreamsAsync(ShowAllDiscovered)];
     }
     catch (Exception ex)
     {

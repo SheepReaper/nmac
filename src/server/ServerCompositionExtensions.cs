@@ -30,262 +30,275 @@ namespace NMAC;
 
 public static class ServerCompositionExtensions
 {
-  public static WebApplicationBuilder AddNmacServerServices(
-    this WebApplicationBuilder builder,
-    string[] ytTopics,
-    string[] seedChannelHandles)
-  {
-    builder.AddServiceDefaults();
-    builder.AddNmacPersistence(ytTopics, seedChannelHandles);
-    builder.AddNmacMessaging();
-    builder.AddNmacYouTubeClients();
-    builder.AddNmacTelemetry();
-    builder.AddNmacAuth();
-    builder.AddNmacDataProtection();
-    builder.AddNmacForwardedHeaders();
-    builder.AddNmacDomainServices();
-
-    return builder;
-  }
-
-  public static WebApplicationBuilder AddNmacDataProtection(this WebApplicationBuilder builder)
-  {
-    var configuredKeyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
-    var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-    var defaultKeyRingRoot = string.IsNullOrWhiteSpace(appDataPath) ? Path.GetTempPath() : appDataPath;
-
-    var keyRingPath = !string.IsNullOrWhiteSpace(configuredKeyRingPath)
-      ? configuredKeyRingPath
-      : Path.Combine(defaultKeyRingRoot, "NMAC", "DataProtectionKeys");
-
-    Directory.CreateDirectory(keyRingPath);
-
-    builder.Services.AddDataProtection()
-      .SetApplicationName("NMAC")
-      .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
-
-    return builder;
-  }
-
-  public static WebApplicationBuilder AddNmacForwardedHeaders(this WebApplicationBuilder builder)
-  {
-    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    public static WebApplicationBuilder AddNmacServerServices(
+        this WebApplicationBuilder builder)
     {
-      options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
-        | ForwardedHeaders.XForwardedProto
-        | ForwardedHeaders.XForwardedHost;
+        builder.AddServiceDefaults();
+        builder.AddNmacPersistence();
+        builder.AddNmacMessaging();
+        builder.AddNmacYouTubeClients();
+        builder.AddNmacTelemetry();
+        builder.AddNmacAuth();
+        builder.AddNmacDataProtection();
+        builder.AddNmacForwardedHeaders();
+        builder.AddNmacDomainServices();
 
-      // TODO: Make this configurable so we can pin known proxies.
-      options.KnownIPNetworks.Clear();
-      options.KnownProxies.Clear();
-    });
+        return builder;
+    }
 
-    return builder;
-  }
-
-  public static WebApplicationBuilder AddNmacPersistence(
-    this WebApplicationBuilder builder,
-    string[] ytTopics,
-    string[] seedChannelHandles)
-  {
-    builder.AddNpgsqlDbContext<AppDbContext>("app-db", driver => { }, contextOptions =>
+    public static WebApplicationBuilder AddNmacDataProtection(this WebApplicationBuilder builder)
     {
-      contextOptions
-        .UseSnakeCaseNamingConvention()
-        .UseAsyncSeeding(async (db, _, ct) =>
+        if (!builder.Environment.IsProduction())
+            return builder;
+
+        var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+
+        if (string.IsNullOrWhiteSpace(keyRingPath))
+            throw new InvalidOperationException("DataProtection:KeyRingPath must be configured in production.");
+
+        builder.Services.AddDataProtection()
+            .SetApplicationName("NMAC")
+            .PersistKeysToFileSystem(Directory.CreateDirectory(keyRingPath));
+
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddNmacForwardedHeaders(this WebApplicationBuilder builder)
+    {
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
-          var subs = db.Set<Subscription>();
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                | ForwardedHeaders.XForwardedProto
+                | ForwardedHeaders.XForwardedHost;
 
-          var missingSubs = ytTopics.Except(subs.Select(s => s.TopicUri.ToString())).Select(m => new Subscription
-          {
-            TopicUri = new Uri(m),
-            Mode = HubMode.Subscribe.ToString(),
-            Enabled = true
-          });
+            // TODO: Make this configurable so we can pin known proxies.
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
 
-          await subs.AddRangeAsync(missingSubs, ct);
+        return builder;
+    }
 
-          if (missingSubs.Any())
-            await db.SaveChangesAsync(ct);
+    public static WebApplicationBuilder AddNmacPersistence(
+        this WebApplicationBuilder builder)
+    {
+        string[] seedChannelIds = builder.Configuration
+            .GetSection("Bootstrap:SeedChannelIds")
+            .Get<string[]>()
+            ?? [];
 
-          var pollTargets = db.Set<ChannelLivePollTarget>();
-          var normalizedSeedHandles = seedChannelHandles
-            .Where(h => !string.IsNullOrWhiteSpace(h))
-            .Select(ChannelLiveDetectionWorker.NormalizeHandle)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        string[] seedChannelHandles = builder.Configuration
+            .GetSection("Bootstrap:SeedChannelHandles")
+            .Get<string[]>()
+            ?? [];
 
-          var missingPollTargets = normalizedSeedHandles
-            .Except(pollTargets.Select(t => t.Handle))
-            .Select(handle => new ChannelLivePollTarget
+        string[] ytTopics = [.. seedChannelIds.Select(id => string.Format(SubscriptionService.ChannelTopicTemplate, id))];
+
+        builder.AddNpgsqlDbContext<AppDbContext>("app-db", driver => { }, contextOptions =>
+        {
+            contextOptions
+                .UseSnakeCaseNamingConvention()
+                .UseAsyncSeeding(async (db, _, ct) =>
+                {
+                    var now = TimeProvider.System.GetUtcNow();
+
+                    var subs = db.Set<Subscription>();
+
+                    var missingSubs = ytTopics.Except(subs.Select(s => s.TopicUri.ToString())).Select(m => new Subscription
+                    {
+                        TopicUri = new Uri(m),
+                        Mode = HubMode.Subscribe,
+                        Enabled = true
+                    });
+
+                    await subs.AddRangeAsync(missingSubs, ct);
+
+                    if (missingSubs.Any())
+                        await db.SaveChangesAsync(ct);
+
+                    var pollTargets = db.Set<ChannelLivePollTarget>();
+                    var normalizedSeedHandles = seedChannelHandles
+                        .Where(h => !string.IsNullOrWhiteSpace(h))
+                        .Select(ChannelLiveDetectionWorker.NormalizeHandle)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+
+                    var missingPollTargets = normalizedSeedHandles
+                        .Except(pollTargets.Select(t => t.Handle))
+                        .Select(handle => new ChannelLivePollTarget
+                        {
+                            Handle = handle,
+                            Enabled = true,
+                            CreatedAt = now,
+                            UpdatedAt = now
+                        });
+
+                    await pollTargets.AddRangeAsync(missingPollTargets, ct);
+
+                    if (db.ChangeTracker.HasChanges())
+                        await db.SaveChangesAsync(ct);
+                });
+        });
+
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddNmacMessaging(this WebApplicationBuilder builder)
+    {
+        builder.UseWolverine(options =>
+        {
+            options.CodeGeneration.AlwaysUseServiceLocationFor<AppDbContext>();
+        });
+
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddNmacYouTubeClients(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddRefitClient<IYouTubeLiveChatApi>()
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri("https://www.googleapis.com/youtube/v3"))
+            .AddHttpMessageHandler<AuthHeaderHandler>();
+
+        builder.Services.AddOptions<SubscriptionServiceOptions>()
+            .Configure(options =>
             {
-              Handle = handle,
-              Enabled = true
+                options.HubUri = new Uri("https://pubsubhubbub.appspot.com");
+                // TODO: Move callback base URI resolution fully to configuration so composition stays environment-agnostic.
+                options.CallbackBaseUri = new(builder.Environment.IsProduction()
+                    ? new("https://nevermac.com")
+                    : builder.Configuration.GetValue<Uri>("services:api:http:0") ?? throw new InvalidOperationException("CallbackBaseUri configuration value is required."), "webhooks/youtube/videos/");
+            }).ValidateOnStart();
+        builder.Services.AddOptions<YTClientOptions>()
+            .Bind(builder.Configuration.GetSection("YTClient"))
+            .ValidateOnStart();
+
+        builder.Services.AddOptions<YTGrpcClientOptions>()
+            .Bind(builder.Configuration.GetSection("YTClient"))
+            .ValidateOnStart();
+
+        builder.Services.AddOptions<ChannelLivePollingOptions>()
+            .Bind(builder.Configuration.GetSection("ChannelLivePolling"))
+            .ValidateOnStart();
+        builder.Services.AddSingleton(sp =>
+        {
+            var channel = GrpcChannel.ForAddress("dns:///youtube.googleapis.com", new GrpcChannelOptions
+            {
+                Credentials = ChannelCredentials.SecureSsl
             });
 
-          await pollTargets.AddRangeAsync(missingPollTargets, ct);
-
-          if (db.ChangeTracker.HasChanges())
-            await db.SaveChangesAsync(ct);
+            return channel.CreateGrpcService<IYouTubeLiveChatStreamList>();
         });
-    });
 
-    return builder;
-  }
+        builder.Services.AddHttpClient(ChannelLiveDetectionWorker.ProbeClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = false
+            });
 
-  public static WebApplicationBuilder AddNmacMessaging(this WebApplicationBuilder builder)
-  {
-    builder.UseWolverine(options =>
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddNmacTelemetry(this WebApplicationBuilder builder)
     {
-      options.CodeGeneration.AlwaysUseServiceLocationFor<AppDbContext>();
-    });
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics.AddMeter(NMAC.LiveStreams.Telemetry.MeterName);
+            })
+            .WithTracing(tracing =>
+            {
+                tracing.AddSource(NMAC.Videos.Telemetry.SourceName);
+                tracing.AddSource(NMAC.LiveStreams.Telemetry.SourceName);
+                tracing.AddSource("Wolverine");
+            });
 
-    return builder;
-  }
+        return builder;
+    }
 
-  public static WebApplicationBuilder AddNmacYouTubeClients(this WebApplicationBuilder builder)
-  {
-    builder.Services.AddRefitClient<IYouTubeLiveChatApi>()
-      .ConfigureHttpClient(c => c.BaseAddress = new Uri("https://www.googleapis.com/youtube/v3"))
-      .AddHttpMessageHandler<AuthHeaderHandler>();
-
-    builder.Services.AddOptions<SubscriptionServiceOptions>()
-      .Configure(options =>
-      {
-        options.HubUri = new Uri("https://pubsubhubbub.appspot.com");
-        options.CallbackBaseUri = new(builder.Environment.IsProduction()
-          ? new("https://nevermac.com") 
-          : builder.Configuration.GetValue<Uri>("services:api:http:0") ?? throw new InvalidOperationException("CallbackBaseUri configuration value is required."), "webhooks/youtube/videos/");
-      }).ValidateOnStart();
-
-    builder.Services.AddOptions<YTClientOptions>()
-      .Bind(builder.Configuration.GetSection("YTClient"))
-      .ValidateOnStart();
-
-    builder.Services.AddOptions<YTGrpcClientOptions>()
-      .Bind(builder.Configuration.GetSection("YTClient"))
-      .ValidateOnStart();
-
-    builder.Services.AddOptions<ChannelLivePollingOptions>()
-      .Configure(options => options.Enabled = true)
-      .ValidateOnStart();
-
-    builder.Services.AddSingleton(sp =>
+    public static WebApplicationBuilder AddNmacAuth(this WebApplicationBuilder builder)
     {
-      var channel = GrpcChannel.ForAddress("dns:///youtube.googleapis.com", new GrpcChannelOptions
-      {
-        Credentials = ChannelCredentials.SecureSsl
-      });
+        builder.Services.AddOptions<DeveloperBasicAuthOptions>()
+            .Bind(builder.Configuration.GetSection("DeveloperBasicAuth"))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
-      return channel.CreateGrpcService<IYouTubeLiveChatStreamList>();
-    });
+        builder.Services.AddAuthentication("DeveloperBasic")
+            .AddScheme<AuthenticationSchemeOptions, DeveloperBasicAuthHandler>("DeveloperBasic", null);
 
-    builder.Services.AddHttpClient(ChannelLiveDetectionWorker.ProbeClientName)
-      .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-      {
-        AllowAutoRedirect = false
-      });
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(DeveloperBasicAuthOptions.DeveloperEndpointsPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add("DeveloperBasic");
+                policy.RequireAuthenticatedUser();
+            });
 
-    return builder;
-  }
+        return builder;
+    }
 
-  public static WebApplicationBuilder AddNmacTelemetry(this WebApplicationBuilder builder)
-  {
-    builder.Services.AddOpenTelemetry()
-      .WithMetrics(metrics =>
-      {
-        metrics.AddMeter(NMAC.LiveStreams.Telemetry.MeterName);
-      })
-      .WithTracing(tracing =>
-      {
-        tracing.AddSource(NMAC.Videos.Telemetry.SourceName);
-        tracing.AddSource(NMAC.LiveStreams.Telemetry.SourceName);
-        tracing.AddSource("Wolverine");
-      });
+    public static WebApplicationBuilder AddNmacDomainServices(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddRazorComponents()
+            .AddInteractiveServerComponents();
 
-    return builder;
-  }
+        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
-  public static WebApplicationBuilder AddNmacAuth(this WebApplicationBuilder builder)
-  {
-    builder.Services.Configure<DeveloperBasicAuthOptions>(
-      builder.Configuration.GetSection("DeveloperBasicAuth"));
+        // XmlSerializer caches generated serialization assemblies; keep one singleton instance.
+        builder.Services.AddSingleton(new XmlSerializer(typeof(Feed)));
+        builder.Services.AddSingleton<FeedValidator>();
+        builder.Services.AddSingleton<WebSubClient>();
+        builder.Services.AddTransient<AuthHeaderHandler>();
+        builder.Services.AddSingleton(VersionHelper.Get());
 
-    builder.Services.AddAuthentication("DeveloperBasic")
-      .AddScheme<AuthenticationSchemeOptions, DeveloperBasicAuthHandler>("DeveloperBasic", null);
+        builder.Services.AddScoped<SubscriptionService>();
+        builder.Services.AddScoped<BrowserTimeInterop>();
+        builder.Services.AddScoped<LiveChatStreamProcessor>();
+        builder.Services.AddScoped<ILiveStreamDashboardQueryService, LiveStreamDashboardQueryService>();
 
-    builder.Services.AddAuthorizationBuilder()
-      .AddPolicy("DeveloperEndpointsBasicAuth", policy =>
-      {
-        policy.AuthenticationSchemes.Add("DeveloperBasic");
-        policy.RequireAuthenticatedUser();
-      });
+        builder.Services.AddHttpClient("Frankfurter", c =>
+            c.BaseAddress = new Uri("https://api.frankfurter.dev/"));
+        builder.Services.AddSingleton<CurrencyConversionService>();
 
-    return builder;
-  }
+        // Register one notifier instance and expose it through both read/write interfaces.
+        builder.Services.AddSingleton<LiveStreamUpdateNotifier>();
+        builder.Services.AddSingleton<ILiveStreamUpdateNotifier>(sp => sp.GetRequiredService<LiveStreamUpdateNotifier>());
+        builder.Services.AddSingleton<ILiveStreamUpdatePublisher>(sp => sp.GetRequiredService<LiveStreamUpdateNotifier>());
 
-  public static WebApplicationBuilder AddNmacDomainServices(this WebApplicationBuilder builder)
-  {
-    builder.Services.AddRazorComponents()
-      .AddInteractiveServerComponents();
+        builder.Services.AddSingleton<ILiveChatCaptureSignal, LiveChatCaptureSignal>();
 
-    builder.Services.AddSingleton((_) => TimeProvider.System);
-    builder.Services.AddSingleton(new XmlSerializer(typeof(Feed)));
-    builder.Services.AddSingleton<FeedValidator>();
-    builder.Services.AddSingleton<WebSubClient>();
-    builder.Services.AddTransient<AuthHeaderHandler>();
-    builder.Services.AddSingleton(VersionHelper.Get());
+        builder.Services.AddAssemblyUseCases(typeof(Program).Assembly);
+        builder.Services.AddAssemblyEndpoints(typeof(Program).Assembly);
 
-    builder.Services.AddScoped<SubscriptionService>();
-    builder.Services.AddScoped<BrowserTimeInterop>();
-    builder.Services.AddScoped<LiveChatStreamProcessor>();
-    builder.Services.AddScoped<ILiveStreamDashboardQueryService, LiveStreamDashboardQueryService>();
+        builder.Services.AddHostedService<SubscriptionRefreshWorker>();
+        builder.Services.AddHostedService<LiveChatCaptureWorker>();
+        builder.Services.AddHostedService<ChannelLiveDetectionWorker>();
 
-    builder.Services.AddHttpClient("Frankfurter", c =>
-      c.BaseAddress = new Uri("https://api.frankfurter.dev/"));
-    builder.Services.AddSingleton<CurrencyConversionService>();
+        return builder;
+    }
 
-    builder.Services.AddSingleton<LiveStreamUpdateNotifier>();
-    builder.Services.AddSingleton<ILiveStreamUpdateNotifier>(sp => sp.GetRequiredService<LiveStreamUpdateNotifier>());
-    builder.Services.AddSingleton<ILiveStreamUpdatePublisher>(sp => sp.GetRequiredService<LiveStreamUpdateNotifier>());
+    public static WebApplication MapNmacServer(this WebApplication app)
+    {
+        app.UseForwardedHeaders();
 
-    builder.Services.AddSingleton<ILiveChatCaptureSignal, LiveChatCaptureSignal>();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseAntiforgery();
 
-    builder.Services.AddAssemblyUseCases(typeof(Program).Assembly);
-    builder.Services.AddAssemblyEndpoints(typeof(Program).Assembly);
+        app.MapDefaultEndpoints();
+        app.MapRegisteredEndpoints();
+        app.MapStaticAssets();
 
-    builder.Services.AddHostedService<StartupService>();
-    builder.Services.AddHostedService<SubscriptionRefreshWorker>();
-    builder.Services.AddHostedService<LiveChatCaptureWorker>();
-    builder.Services.AddHostedService<ChannelLiveDetectionWorker>();
+        app.MapRazorComponents<App>()
+            .AddAdditionalAssemblies(typeof(NMAC.Ui.Components._Imports).Assembly)
+            .AddInteractiveServerRenderMode();
 
-    return builder;
-  }
+        return app;
+    }
 
-  public static WebApplication MapNmacServer(this WebApplication app)
-  {
-    app.UseForwardedHeaders();
+    public static async Task MigrateNmacDatabaseAsync(this WebApplication app)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    app.UseAuthentication();
-    app.UseAuthorization();
-    app.UseAntiforgery();
-
-    app.MapDefaultEndpoints();
-    app.MapRegisteredEndpoints();
-    app.MapStaticAssets();
-
-    app.MapRazorComponents<App>()
-      .AddAdditionalAssemblies(typeof(NMAC.Ui.Components._Imports).Assembly)
-      .AddInteractiveServerRenderMode();
-
-    return app;
-  }
-
-  public static async Task MigrateNmacDatabaseAsync(this WebApplication app)
-  {
-    await using var scope = app.Services.CreateAsyncScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    await db.Database.MigrateAsync();
-  }
+        await db.Database.MigrateAsync();
+    }
 }

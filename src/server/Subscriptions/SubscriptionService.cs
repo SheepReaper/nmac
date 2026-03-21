@@ -101,7 +101,7 @@ public partial class SubscriptionService(
         Subscription pending = new()
         {
             CallbackUri = request.CallbackUri,
-            Mode = request.Mode.ToString(),
+            Mode = request.Mode,
             TopicUri = request.TopicUri,
             Secret = request.Secret,
             Slug = request.ExtractGuidSlug(),
@@ -232,7 +232,7 @@ public partial class SubscriptionService(
         await db.Subscriptions.ExecuteUpdateAsync(e => e
             .SetProperty(s => s.CallbackUri, (_) => null)
             .SetProperty(s => s.Expiration, (_) => null)
-            .SetProperty(s => s.Mode, (_) => HubMode.Subscribe.ToString())
+            .SetProperty(s => s.Mode, (_) => HubMode.Subscribe)
             .SetProperty(s => s.Secret, (_) => null)
             .SetProperty(s => s.Slug, (_) => null)
         , cancellationToken);

@@ -12,10 +12,10 @@ public partial class RemoveChannel(
     IMessageBus bus
 ) : IUseCase
 {
-    [LoggerMessage(0, LogLevel.Information, "Manually removing channel with ID: {ChannelId}")]
-    partial void LogRemovingChannel(string channelId);
+    [LoggerMessage(1102, LogLevel.Information, "Manually removing channel with ID: {ChannelId}")]
+    private partial void LogRemovingChannel(string channelId);
 
-    private async Task<IResult> HandleAsync(string channelId)
+    private async Task<IResult> HandleAsync(string channelId, CancellationToken ct)
     {
         LogRemovingChannel(channelId);
 
@@ -33,8 +33,9 @@ public partial class RemoveChannel(
         {
             endpoints.MapPost("remove-channel/{channelId}", async (
                 string channelId,
-                RemoveChannel useCase) => await useCase.HandleAsync(channelId))
-                .RequireAuthorization("DeveloperEndpointsBasicAuth");
+                RemoveChannel useCase,
+                CancellationToken ct) => await useCase.HandleAsync(channelId, ct))
+                .RequireAuthorization(DeveloperBasicAuthOptions.DeveloperEndpointsPolicy);
         }
     }
 }

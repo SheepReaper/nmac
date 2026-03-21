@@ -11,7 +11,7 @@ public partial class RemoveChannelHandle(
 ) : IUseCase
 {
     [LoggerMessage(6202, LogLevel.Information, "Manually removing channel live-detection handle: {Handle}")]
-    partial void LogRemovingHandle(string handle);
+    private partial void LogRemovingHandle(string handle);
 
     private async Task<IResult> HandleAsync(string handle, CancellationToken ct)
     {
@@ -39,7 +39,7 @@ public partial class RemoveChannelHandle(
                 string handle,
                 RemoveChannelHandle useCase,
                 CancellationToken ct) => await useCase.HandleAsync(handle, ct))
-                .RequireAuthorization("DeveloperEndpointsBasicAuth");
+                .RequireAuthorization(DeveloperBasicAuthOptions.DeveloperEndpointsPolicy);
         }
     }
 }

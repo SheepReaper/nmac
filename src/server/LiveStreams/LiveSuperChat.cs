@@ -20,6 +20,7 @@ public class LiveSuperChat
     [MaxLength(200)]
     public string? AuthorDisplayName { get; set; }
 
+    [MaxLength(2048)]
     public string? AuthorProfileImageUrl { get; set; }
 
     public long AmountMicros { get; set; }
@@ -30,6 +31,7 @@ public class LiveSuperChat
     [MaxLength(64)]
     public string? AmountDisplayString { get; set; }
 
+    // Super chat message bodies are intentionally unbounded text.
     public string? MessageContent { get; set; }
 
     public DateTimeOffset? PublishedAt { get; set; }

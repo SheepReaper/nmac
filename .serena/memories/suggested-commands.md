@@ -30,10 +30,6 @@ dotnet ef database update --project src/server/NMAC.csproj
 
 ## Testing (no automated tests currently)
 - Manual HTTP tests in `tests.http`
-- `src/tester/` — console app for manual WebSub notification testing:
-  ```powershell
-  dotnet run --project src/tester/tester.csproj
-  ```
 
 ## Linting / Formatting
 - No dedicated linter/formatter configured (C# with standard dotnet conventions)

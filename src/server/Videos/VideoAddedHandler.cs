@@ -12,24 +12,21 @@ public partial class VideoAddedHandler(
     ILogger<VideoAddedHandler> logger)
 {
     [LoggerMessage(EventId = 5001, Level = LogLevel.Information, Message = "Video manually added: {VideoId}")]
-    partial void LogNewVideo(string videoId);
+    private partial void LogNewVideo(string videoId);
 
     [LoggerMessage(EventId = 5002, Level = LogLevel.Information, Message = "Live chat found for video: {VideoId}, LiveChatId: {LiveChatId}")]
-    partial void LogLiveChatFound(string videoId, string liveChatId);
+    private partial void LogLiveChatFound(string videoId, string liveChatId);
 
     [LoggerMessage(EventId = 5003, Level = LogLevel.Warning, Message = "YouTube API error for video {VideoId}: {ErrorMessage}")]
-    partial void LogYTApiError(string videoId, string? errorMessage);
+    private partial void LogYTApiError(string videoId, string? errorMessage);
 
     [LoggerMessage(EventId = 5004, Level = LogLevel.Warning, Message = "Video {VideoId} not found in YouTube API response.")]
-    partial void LogRemoteVideoNotFound(string videoId);
+    private partial void LogRemoteVideoNotFound(string videoId);
 
     private readonly static string[] ThumbnailPref = ["maxres", "high"];
 
     public async Task<LiveStreamFound?> Handle(VideoAdded command, CancellationToken ct)
     {
-        // var parentContext = command.TraceParent is null ? default : ActivityContext.Parse(command.TraceParent, null);
-
-        // using var activity = Telemetry.ActivitySource.StartActivity("Consume VideoAdded", ActivityKind.Consumer, parentContext);
         Activity.Current?.SetTag("video.id", command.VideoId);
         Activity.Current?.AddBaggage("videoId", command.VideoId);
 
@@ -77,8 +74,6 @@ public partial class VideoAddedHandler(
 
         LogLiveChatFound(command.VideoId, liveChatId);
 
-        // using var publishActivity = Telemetry.ActivitySource.StartActivity("Publish LiveStreamFound", ActivityKind.Producer);
-        // publishActivity?.SetTag("video.id", command.VideoId);
         Activity.Current?.SetTag("live_chat.id", liveChatId);
         Activity.Current?.AddBaggage("liveChatId", liveChatId);
 

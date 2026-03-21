@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 using NMAC.LiveStreams;
 using NMAC.Subscriptions;
+using NMAC.Subscriptions.WebSub;
 using NMAC.Videos;
 
 namespace NMAC.Core;
@@ -19,6 +20,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Timestamp rule: values sourced from external systems may be nullable, while
+        // internal lifecycle timestamps that are always set on insert/update are non-nullable.
         // Slug must be unique for webhook routing
         modelBuilder.Entity<Subscription>()
             .HasIndex(s => s.Slug)
@@ -68,5 +71,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<ChannelLivePollTarget>()
             .HasIndex(t => t.UpdatedAt);
+
+        // Enum value converters: store as string to keep DB columns human-readable.
+        modelBuilder.Entity<LiveChatCaptureSession>()
+            .Property(s => s.State)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<Subscription>()
+            .Property(s => s.Mode)
+            .HasConversion(
+                v => v!.ToString(),
+                v => HubMode.FromString(v!)
+            );
     }
 }

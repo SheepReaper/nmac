@@ -67,7 +67,7 @@ public partial class VerifySubscription(
             {
                 LogOrphanedSubscriptionFound(slug);
 
-                HubMode orphanMode = mode;
+                HubMode orphanMode = HubMode.FromString(mode);
 
                 // Only process unsubscribe verification for orphaned subscriptions
                 if (orphanMode == HubMode.Unsubscribe && orphaned.TopicUri == topic)
@@ -83,7 +83,7 @@ public partial class VerifySubscription(
             return Results.NotFound();
         }
 
-        HubMode hubMode = mode;
+        HubMode hubMode = HubMode.FromString(mode);
 
         if (hubMode == HubMode.Denied)
         {
@@ -97,9 +97,9 @@ public partial class VerifySubscription(
             return Results.Ok();
         }
 
-        if (!(subscription.Mode! == hubMode.Value && subscription.TopicUri == topic))
+        if (!(subscription.Mode == hubMode && subscription.TopicUri == topic))
         {
-            LogInvalidValidationRequest(slug, subscription.Mode, subscription.TopicUri, hubMode, topic);
+            LogInvalidValidationRequest(slug, subscription.Mode?.ToString(), subscription.TopicUri, hubMode, topic);
             return Results.NotFound();
         }
 

@@ -41,7 +41,7 @@ public partial class LiveStreamFoundHandler(
             SessionId = Guid.NewGuid(),
             LiveChatId = command.LiveChatId,
             VideoId = command.VideoId,
-            State = "Requested",
+            State = LiveCaptureSessionState.Requested,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

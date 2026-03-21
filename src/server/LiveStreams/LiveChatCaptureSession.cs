@@ -13,10 +13,9 @@ public class LiveChatCaptureSession
     [MaxLength(32)]
     public required string VideoId { get; set; }
 
-    [MaxLength(20)]
-    public required string State { get; set; }
+    public required LiveCaptureSessionState State { get; set; }
 
-    public DateTimeOffset? CreatedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset? StartedAt { get; set; }
 

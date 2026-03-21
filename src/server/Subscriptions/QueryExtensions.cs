@@ -4,17 +4,19 @@ using NMAC.Core;
 
 namespace NMAC.Subscriptions;
 
-public static class QueryExtensions
+internal static class QueryExtensions
 {
-    public static Task ExecuteUpsertAsync(this AppDbContext db, Subscription entity, CancellationToken cancellationToken = default)
+    internal static Task ExecuteUpsertAsync(this AppDbContext db, Subscription entity, CancellationToken cancellationToken = default)
     {
         var topicUri = entity.TopicUri.ToString();
         var callbackUri = entity.CallbackUri?.ToString();
+        var mode = entity.Mode?.ToString();
 
-        // Atomic upsert at the database level to avoid check-then-act races.
+        // Interpolated SQL keeps parameterization while enabling IS DISTINCT FROM checks
+        // to avoid no-op updates and unnecessary row churn.
         return db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO subscriptions (topic_uri, slug, secret, mode, expiration, callback_uri, enabled)
-            VALUES ({topicUri}, {entity.Slug}, {entity.Secret}, {entity.Mode}, {entity.Expiration}, {callbackUri}, {entity.Enabled})
+            VALUES ({topicUri}, {entity.Slug}, {entity.Secret}, {mode}, {entity.Expiration}, {callbackUri}, {entity.Enabled})
             ON CONFLICT (topic_uri) DO UPDATE
             SET slug = EXCLUDED.slug,
                 secret = EXCLUDED.secret,
@@ -31,7 +33,7 @@ public static class QueryExtensions
             """, cancellationToken);
     }
 
-    public static Task ExecuteUpsertAsync(this AppDbContext db, ContentDistribution entity, CancellationToken cancellationToken = default)
+    internal static Task ExecuteUpsertAsync(this AppDbContext db, ContentDistribution entity, CancellationToken cancellationToken = default)
     {
         var topicUri = entity.TopicUri.ToString();
 
