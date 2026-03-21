@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NMAC.Core;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NMAC.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321052936_AddLiveSuperStickers")]
+    partial class AddLiveSuperStickers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,48 +24,6 @@ namespace NMAC.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("NMAC.LiveStreams.AvatarCacheItem", b =>
-                {
-                    b.Property<string>("CacheKey")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("cache_key");
-
-                    b.Property<DateTimeOffset>("CachedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cached_at");
-
-                    b.Property<byte[]>("Content")
-                        .HasColumnType("bytea")
-                        .HasColumnName("content");
-
-                    b.Property<string>("ContentType")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<bool>("IsMissing")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_missing");
-
-                    b.Property<string>("SourceUrl")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("source_url");
-
-                    b.HasKey("CacheKey")
-                        .HasName("pk_avatar_cache_items");
-
-                    b.HasIndex("ExpiresAt")
-                        .HasDatabaseName("ix_avatar_cache_items_expires_at");
-
-                    b.ToTable("avatar_cache_items", (string)null);
-                });
 
             modelBuilder.Entity("NMAC.LiveStreams.ChannelLivePollTarget", b =>
                 {

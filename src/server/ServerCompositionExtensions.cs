@@ -240,6 +240,7 @@ public static class ServerCompositionExtensions
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
+        builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
         // XmlSerializer caches generated serialization assemblies; keep one singleton instance.
@@ -251,11 +252,17 @@ public static class ServerCompositionExtensions
 
         builder.Services.AddScoped<SubscriptionService>();
         builder.Services.AddScoped<BrowserTimeInterop>();
+        builder.Services.AddSingleton<AvatarProxyService>();
         builder.Services.AddScoped<LiveChatStreamProcessor>();
         builder.Services.AddScoped<ILiveStreamDashboardQueryService, LiveStreamDashboardQueryService>();
 
         builder.Services.AddHttpClient("Frankfurter", c =>
             c.BaseAddress = new Uri("https://api.frankfurter.dev/"));
+        builder.Services.AddHttpClient(AvatarProxyService.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("NMAC/1.0");
+        });
         builder.Services.AddSingleton<CurrencyConversionService>();
 
         // Register one notifier instance and expose it through both read/write interfaces.

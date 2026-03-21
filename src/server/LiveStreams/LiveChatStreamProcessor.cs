@@ -94,6 +94,9 @@ public partial class LiveChatStreamProcessor(
     private static readonly LiveChatMessageSnippet.TypeWrapper.Type SuperChatEvent =
         LiveChatMessageSnippet.TypeWrapper.Type.SuperChatEvent;
 
+    private static readonly LiveChatMessageSnippet.TypeWrapper.Type SuperStickerEvent =
+        LiveChatMessageSnippet.TypeWrapper.Type.SuperStickerEvent;
+
     private static readonly LiveChatMessageSnippet.TypeWrapper.Type FanFundingEvent =
         LiveChatMessageSnippet.TypeWrapper.Type.FanFundingEvent;
 
@@ -426,7 +429,7 @@ public partial class LiveChatStreamProcessor(
             if (snippetType == ChatEndedEvent)
                 chatEnded = true;
 
-            if (snippetType == SuperChatEvent && !string.IsNullOrEmpty(item.Id))
+            if ((snippetType == SuperChatEvent || snippetType == SuperStickerEvent) && !string.IsNullOrEmpty(item.Id))
                 superChats.Add(MapToEntity(item, session));
 
             if (snippetType == FanFundingEvent && !string.IsNullOrEmpty(item.Id))
@@ -565,7 +568,10 @@ public partial class LiveChatStreamProcessor(
     private static LiveSuperChat MapToEntity(LiveChatMessage msg, LiveChatCaptureSession session)
     {
         var sc = msg.Snippet?.SuperChatDetails;
+        var sticker = msg.Snippet?.SuperStickerDetails;
+        var stickerMetadata = sticker?.SuperStickerMetadata;
         var author = msg.AuthorDetails;
+        var isSuperSticker = sticker is not null;
 
         DateTimeOffset? publishedAt = null;
         if (!string.IsNullOrEmpty(msg.Snippet?.PublishedAt)
@@ -580,10 +586,14 @@ public partial class LiveChatStreamProcessor(
             AuthorChannelId = author?.ChannelId,
             AuthorDisplayName = author?.DisplayName,
             AuthorProfileImageUrl = author?.ProfileImageUrl,
-            AmountMicros = (long)(sc?.AmountMicros ?? 0UL),
-            Currency = sc?.Currency,
-            AmountDisplayString = sc?.AmountDisplayString,
-            MessageContent = sc?.UserComment,
+            AmountMicros = (long)(isSuperSticker ? sticker?.AmountMicros ?? 0UL : sc?.AmountMicros ?? 0UL),
+            Currency = isSuperSticker ? sticker?.Currency : sc?.Currency,
+            AmountDisplayString = isSuperSticker ? sticker?.AmountDisplayString : sc?.AmountDisplayString,
+            IsSuperSticker = isSuperSticker,
+            StickerId = stickerMetadata?.StickerId,
+            StickerAltText = stickerMetadata?.AltText,
+            StickerAltTextLanguage = stickerMetadata?.AltTextLanguage,
+            MessageContent = isSuperSticker ? null : sc?.UserComment,
             PublishedAt = publishedAt
         };
     }

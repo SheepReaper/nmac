@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<YTVideo> YTVideos { get; set; } = null!;
     public DbSet<LiveSuperChat> LiveSuperChats { get; set; } = null!;
     public DbSet<LiveFundingDonation> LiveFundingDonations { get; set; } = null!;
+    public DbSet<AvatarCacheItem> AvatarCacheItems { get; set; } = null!;
     public DbSet<LiveChatCaptureSession> LiveChatCaptureSessions { get; set; } = null!;
     public DbSet<ChannelLivePollTarget> ChannelLivePollTargets { get; set; } = null!;
 
@@ -54,6 +55,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<LiveFundingDonation>()
             .HasIndex(d => d.VideoId);
+
+        modelBuilder.Entity<AvatarCacheItem>()
+            .HasIndex(a => a.ExpiresAt);
 
         // Live chat capture session indexes: unique session per live chat, worker polling by state/staleness.
         modelBuilder.Entity<LiveChatCaptureSession>()

@@ -11,6 +11,7 @@ export function getLocalDateTimePartsFromUtc(utcIsoString) {
     month: localDateTime.getMonth() + 1,
     day: localDateTime.getDate(),
     hour: localDateTime.getHours(),
-    minute: localDateTime.getMinutes()
+    minute: localDateTime.getMinutes(),
+    second: localDateTime.getSeconds()
   };
 }

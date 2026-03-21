@@ -116,7 +116,25 @@
       @if (_dashboard is not null)
       {
         <section class="box nmac-surface">
-          <h2 class="title is-5">Top donators (USD)</h2>
+          <div class="nmac-section-header">
+            <div>
+              <h2 class="title is-5 mb-1">Top donators (USD)</h2>
+              @if (HiddenTopDonatorCount > 0 && !_showAllTopDonators)
+              {
+                <p class="is-size-7 has-text-soft mb-0">
+                  Showing top @TopDonatorPreviewCount of @_dashboard.TopDonators.Count donators.
+                </p>
+              }
+            </div>
+            @if (_dashboard.TopDonators.Count > TopDonatorPreviewCount)
+            {
+              <button class="button is-small has-background-link-soft has-text-link-bold"
+                      type="button"
+                      @onclick="ToggleTopDonatorsExpanded">
+                @(_showAllTopDonators ? $"Show top {TopDonatorPreviewCount}" : $"Show all {_dashboard.TopDonators.Count}")
+              </button>
+            }
+          </div>
           @if (_dashboard.TopDonators.Count == 0)
           {
             <div class="notification has-background-info-soft has-text-info-bold mb-0">No USD superchats available yet.</div>
@@ -129,11 +147,11 @@
                   <tr>
                     <th>Donator</th>
                     <th>Total USD</th>
-                    <th>Superchats</th>
+                    <th>Messages</th>
                   </tr>
                 </thead>
                 <tbody>
-                  @foreach (var donor in _dashboard.TopDonators)
+                  @foreach (var donor in VisibleTopDonators)
                   {
                     var donorChannelUrl = BuildAuthorChannelUrl(donor.DonatorKey);
                     <tr>
@@ -164,7 +182,7 @@
         </section>
 
         <section class="box nmac-surface">
-          <h2 class="title is-5">Superchats</h2>
+          <h2 class="title is-5">Super chats & stickers</h2>
           @if (_visibleRows.Count == 0)
           {
             <div class="notification has-background-info-soft has-text-info-bold mb-0">No superchats to display for current
@@ -190,29 +208,42 @@
                       var state = GetAckState(row.MessageId);
                       var authorChannelUrl = BuildAuthorChannelUrl(row.AuthorKey);
                       <tr>
-                        <td class="nmac-col-nowrap">@FormatTime(row.PublishedAt)</td>
+                        <td class="nmac-col-nowrap">@FormatArrivalTime(row)</td>
                         <td>
-                          <p class="has-text-weight-semibold mb-1" title="@BuildAliasTooltip(row.AuthorAliases, row.AuthorDisplayName)">
-                            @if (authorChannelUrl is not null)
+                          <div class="nmac-author-cell">
+                            @if (!string.IsNullOrWhiteSpace(row.AuthorProfileImageUrl))
                             {
-                              <a class="has-text-link" href="@authorChannelUrl" rel="noopener noreferrer" target="_blank">@row.AuthorDisplayName</a>
+                              <img class="nmac-author-avatar"
+                              src="@BuildAvatarUrl(row)"
+                                   alt="@($"{row.AuthorDisplayName} avatar")"
+                                   loading="lazy"
+                              referrerpolicy="no-referrer"
+                              onerror="this.remove()" />
                             }
-                            else
-                            {
-                              <span>@row.AuthorDisplayName</span>
-                            }
-                            @if (GetAliasCount(row.AuthorAliases, row.AuthorDisplayName) > 0)
-                            {
-                              <span class="tag is-small has-background-link-soft has-text-link-bold ml-2">
-                                AKA @GetAliasCount(row.AuthorAliases, row.AuthorDisplayName)
-                              </span>
-                            }
-                          </p>
-                          @if (row.AuthorOrdinal > 1)
-                          {
-                            <span class="tag is-small has-background-info-soft has-text-info-bold"
-                                  title="Superchat #@row.AuthorOrdinal from this author">#@row.AuthorOrdinal</span>
-                          }
+                            <div>
+                              <p class="has-text-weight-semibold mb-1" title="@BuildAliasTooltip(row.AuthorAliases, row.AuthorDisplayName)">
+                                @if (authorChannelUrl is not null)
+                                {
+                                  <a class="has-text-link" href="@authorChannelUrl" rel="noopener noreferrer" target="_blank">@row.AuthorDisplayName</a>
+                                }
+                                else
+                                {
+                                  <span>@row.AuthorDisplayName</span>
+                                }
+                                @if (GetAliasCount(row.AuthorAliases, row.AuthorDisplayName) > 0)
+                                {
+                                  <span class="tag is-small has-background-link-soft has-text-link-bold ml-2">
+                                    AKA @GetAliasCount(row.AuthorAliases, row.AuthorDisplayName)
+                                  </span>
+                                }
+                              </p>
+                              @if (row.AuthorOrdinal > 1)
+                              {
+                                <span class="tag is-small has-background-info-soft has-text-info-bold"
+                                      title="Superchat #@row.AuthorOrdinal from this author">#@row.AuthorOrdinal</span>
+                              }
+                            </div>
+                          </div>
                         </td>
                         <td class="nmac-col-nowrap" title="@BuildAmountTooltip(row)">
                           @FormatAmount(row)
@@ -221,7 +252,7 @@
                             <br /><small class="has-text-soft">(@row.UsdEquivalent.Value.ToString("$0.00") USD)</small>
                           }
                         </td>
-                        <td>@(row.MessageContent ?? string.Empty)</td>
+                        <td>@RenderPaidMessage(row)</td>
                         <td class="nmac-col-nowrap"><span class="tag @GetAckTagClass(state)">@state</span></td>
                         <td class="nmac-col-nowrap">
                           <div class="row-actions">
@@ -254,18 +285,33 @@
 
   private LiveStreamDashboard? _dashboard;
   private readonly Dictionary<string, SuperChatAckState> _ackStates = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, string> _localArrivalTimes = new(StringComparer.Ordinal);
   private readonly List<LiveSuperChatRow> _visibleRows = [];
+  private const int TopDonatorPreviewCount = 5;
 
   private IDisposable? _subscription;
   private Timer? _statsRefreshTimer;
   private bool _disposed;
   private bool _isLoading;
   private bool _browserStateReady;
+  private bool _showAllTopDonators;
   private string? _error;
   private SuperChatSort _sort = SuperChatSort.UsdDescThenOldest;
   private bool _showAcknowledged;
   private DateTimeOffset _targetCompletionUtc;
   private DateTime _targetCompletionLocalInput;
+
+  private IEnumerable<TopDonatorRow> VisibleTopDonators
+    => _dashboard?.TopDonators is null
+      ? []
+      : _showAllTopDonators
+        ? _dashboard.TopDonators
+        : _dashboard.TopDonators.Take(TopDonatorPreviewCount).ToArray();
+
+  private int HiddenTopDonatorCount
+    => _dashboard is null
+      ? 0
+      : Math.Max(0, _dashboard.TopDonators.Count - TopDonatorPreviewCount);
 
   private int RemainingCount => _dashboard is null
     ? 0
@@ -308,6 +354,7 @@
     using CancellationTokenSource initialLoadCts = new(TimeSpan.FromSeconds(30));
     await LoadStoredTargetCompletionAsync(initialLoadCts.Token);
     await LoadAckStatesAsync(initialLoadCts.Token);
+    await RefreshLocalArrivalTimesAsync(initialLoadCts.Token);
 
     _subscription = UpdateNotifier.Subscribe(VideoId, update =>
     {
@@ -363,6 +410,9 @@
     {
       _dashboard = await QueryService.GetStreamDashboardAsync(VideoId, ct);
       RebuildVisibleRows();
+
+      if (_browserStateReady)
+        await RefreshLocalArrivalTimesAsync(ct);
     }
     catch (OperationCanceledException) when (ct.IsCancellationRequested)
     {
@@ -432,6 +482,40 @@
     RebuildVisibleRows();
   }
 
+  private async Task RefreshLocalArrivalTimesAsync(CancellationToken ct = default)
+  {
+    _localArrivalTimes.Clear();
+
+    if (!_browserStateReady || _dashboard is null)
+      return;
+
+    try
+    {
+      foreach (var row in _dashboard.SuperChats)
+      {
+        if (row.PublishedAt is null)
+          continue;
+
+        ct.ThrowIfCancellationRequested();
+
+        var local = await BrowserTimeInterop.GetLocalDateTimePartsAsync(row.PublishedAt.Value.ToUniversalTime());
+        _localArrivalTimes[row.MessageId] = $"{local.Hour:00}:{local.Minute:00}:{local.Second:00}";
+      }
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+      // Time-bounded refresh operations are expected to cancel occasionally.
+    }
+    catch (InvalidOperationException)
+    {
+      // JS interop unavailable; fall back to server-side conversion.
+    }
+    catch (JSDisconnectedException)
+    {
+      // JS interop unavailable; fall back to server-side conversion.
+    }
+  }
+
   private SuperChatAckState GetAckState(string messageId)
     => _ackStates.TryGetValue(messageId, out var state)
       ? state
@@ -482,6 +566,11 @@
   private void OnShowAcknowledgedChanged()
   {
     RebuildVisibleRows();
+  }
+
+  private void ToggleTopDonatorsExpanded()
+  {
+    _showAllTopDonators = !_showAllTopDonators;
   }
 
   private async Task OnTargetCompletionChanged()
@@ -576,7 +665,7 @@
 
     var lines = new List<string>
     {
-      "MessageId,VideoId,Author,AuthorOrdinal,Currency,AmountMicros,AmountDisplay,UsdEquivalent,PublishedAtUtc,AckState,Message"
+      "MessageId,VideoId,Author,AuthorOrdinal,EventType,Currency,AmountMicros,AmountDisplay,UsdEquivalent,PublishedAtUtc,AckState,StickerId,StickerAltText,Message"
     };
 
     foreach (var row in _dashboard.SuperChats.OrderBy(r => r.PublishedAt).ThenBy(r => r.MessageId))
@@ -587,12 +676,15 @@
         EscapeCsv(row.VideoId),
         EscapeCsv(row.AuthorDisplayName),
         row.AuthorOrdinal.ToString(),
+        EscapeCsv(row.IsSuperSticker ? "SuperSticker" : "SuperChat"),
         EscapeCsv(row.Currency),
         row.AmountMicros.ToString(),
         EscapeCsv(row.AmountDisplayString),
         EscapeCsv(row.UsdEquivalent?.ToString("0.00")),
         EscapeCsv(row.PublishedAt?.UtcDateTime.ToString("O")),
         EscapeCsv(GetAckState(row.MessageId).ToString()),
+        EscapeCsv(row.StickerId),
+        EscapeCsv(row.StickerAltText),
         EscapeCsv(row.MessageContent)
       };
 
@@ -621,6 +713,37 @@
   private static string FormatTime(DateTimeOffset? value)
     => value?.ToLocalTime().ToString("HH:mm:ss") ?? "-";
 
+  private RenderFragment RenderPaidMessage(LiveSuperChatRow row) => builder =>
+  {
+    if (row.IsSuperSticker)
+    {
+      builder.OpenElement(0, "div");
+      builder.AddAttribute(1, "class", "nmac-paid-message");
+
+      builder.OpenElement(2, "span");
+      builder.AddAttribute(3, "class", "tag is-small has-background-warning-soft has-text-warning-bold");
+      builder.AddContent(4, "Sticker");
+      builder.CloseElement();
+
+      builder.OpenElement(5, "span");
+      builder.AddContent(6, FormatStickerLabel(row));
+      builder.CloseElement();
+
+      builder.CloseElement();
+      return;
+    }
+
+    builder.AddContent(7, row.MessageContent ?? string.Empty);
+  };
+
+  private string FormatArrivalTime(LiveSuperChatRow row)
+  {
+    if (_localArrivalTimes.TryGetValue(row.MessageId, out var localTime))
+      return localTime;
+
+    return FormatTime(row.PublishedAt);
+  }
+
   private static string FormatAmount(LiveSuperChatRow row)
   {
     if (!string.IsNullOrWhiteSpace(row.AmountDisplayString))
@@ -638,6 +761,17 @@
       return null;
 
     return $"Currency: {row.Currency}";
+  }
+
+  private static string FormatStickerLabel(LiveSuperChatRow row)
+  {
+    if (!string.IsNullOrWhiteSpace(row.StickerAltText))
+      return row.StickerAltText;
+
+    if (!string.IsNullOrWhiteSpace(row.StickerId))
+      return row.StickerId;
+
+    return "Super Sticker";
   }
 
   private static string? BuildAliasTooltip(IReadOnlyList<string> aliases, string displayName)
@@ -660,6 +794,14 @@
 
   private static string BuildStudioCommentsInboxUrl(string videoId)
     => $"https://studio.youtube.com/video/{Uri.EscapeDataString(videoId)}/comments/inbox";
+
+  private static string? BuildAvatarUrl(LiveSuperChatRow row)
+  {
+    if (string.IsNullOrWhiteSpace(row.AuthorProfileImageUrl))
+      return null;
+
+    return $"/avatars/{Uri.EscapeDataString(row.AuthorKey)}?url={Uri.EscapeDataString(row.AuthorProfileImageUrl)}";
+  }
 
   private static string? BuildAuthorChannelUrl(string authorKey)
   {

@@ -31,6 +31,17 @@ public class LiveSuperChat
     [MaxLength(64)]
     public string? AmountDisplayString { get; set; }
 
+    public bool IsSuperSticker { get; set; }
+
+    [MaxLength(128)]
+    public string? StickerId { get; set; }
+
+    [MaxLength(512)]
+    public string? StickerAltText { get; set; }
+
+    [MaxLength(32)]
+    public string? StickerAltTextLanguage { get; set; }
+
     // Super chat message bodies are intentionally unbounded text.
     public string? MessageContent { get; set; }
 
