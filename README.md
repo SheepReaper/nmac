@@ -2,6 +2,8 @@
 
 A YouTube live stream monitoring tool that captures SuperChat and channel membership donations in real time, so you never miss a viewer's support.
 
+**Live demo:** [nevermac.com](https://nevermac.com) — configured for a single channel that streams ~4 hours on a nightly basis.
+
 ## Features
 
 - **Stream Catalog** — live dashboard listing all monitored streams with status, SuperChat count, total USD raised, and last activity
@@ -19,7 +21,6 @@ src/
   server/NMAC.csproj      # Backend: API, workers, database, Blazor host
   web/NMAC.Ui.csproj      # Razor UI component library
   ServiceDefaults/        # Shared Aspire service configuration
-infra/                    # Docker Compose + Cloudflare Tunnel (not tracked)
 ```
 
 **Tech stack**
@@ -60,7 +61,17 @@ The server registers a WebSub subscription with YouTube for each channel. YouTub
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - Docker (for PostgreSQL via Aspire, or bring your own)
-- YouTube Data API v3 key ([Google Cloud Console](https://console.cloud.google.com/))
+- YouTube Data API v3 key with the **YouTube Data API v3** service enabled
+
+### Obtaining a YouTube Data API v3 key
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create or select a project.
+2. Navigate to **APIs & Services → Library**, search for **YouTube Data API v3**, and click **Enable**.
+3. Navigate to **APIs & Services → Credentials**, click **Create Credentials → API key**.
+4. Optional but recommended: restrict the key to **YouTube Data API v3** under *API restrictions*, and restrict it to your server's IP under *Application restrictions*.
+5. Copy the key — this is your `YTClient:ApiKey` value.
+
+For additional detail see [Google's official guide](https://developers.google.com/youtube/registering_an_application).
 
 ## Getting Started
 
@@ -128,6 +139,22 @@ dotnet ef database update
 | `ConnectionStrings__nmac` | PostgreSQL connection string |
 | `ChannelLivePolling:IntervalSeconds` | Polling interval for live detection (default: 60) |
 | `ChannelLivePolling:RecheckIntervalSeconds` | Minimum re-publish throttle per video (default: 30) |
+
+## Known Limitations
+
+### WebSub feed subscriptions do not detect livestreams
+
+YouTube only pushes PubSubHubbub (WebSub) notifications when a channel publishes a regular (non-broadcast) video. Livestream start/end events are **not** delivered via the feed. As a result, `SubscriptionRefreshWorker` and the WebSub ingestion path cannot trigger capture for a live stream — the polling-based `ChannelLiveDetectionWorker` is the only mechanism that actually works.
+
+The WebSub implementation is kept in the codebase as a fully working example of a WebSub/PubSubHubbub subscriber (challenge verification, HMAC-signed payload validation, subscription renewal). If YouTube ever extends feed notifications to live events, the plumbing is already there.
+
+### Charity and fundraiser donation events are not captured
+
+When a livestream contains a YouTube Charity or Creator Fundraiser event, the associated donation messages behave similarly to SuperChats but do **not** appear in the gRPC live chat stream — at least none were observed during testing. The relevant protobuf field index may simply be undocumented. `LiveFundingDonation` records are written for YouTube-native fan funding events, but charity fundraiser amounts are silently absent.
+
+### gRPC stream connection lifetime is capped at ~10 seconds
+
+Despite YouTube's gRPC live chat API advertising a streaming interface, in practice each server-sent stream closes after roughly 10 seconds regardless of activity. The app works around this by reconnecting immediately (see `LiveChatStreamProcessor`) and by tuning polling intervals to make each short-lived connection as productive as possible. This still burns API quota faster than a conventional polling approach would — factor that in when sizing your quota allocation.
 
 ## Security Notes
 

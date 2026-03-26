@@ -278,6 +278,7 @@ public static class ServerCompositionExtensions
         builder.Services.AddHostedService<SubscriptionRefreshWorker>();
         builder.Services.AddHostedService<LiveChatCaptureWorker>();
         builder.Services.AddHostedService<ChannelLiveDetectionWorker>();
+        builder.Services.AddHostedService<DatabaseCleanupWorker>();
 
         return builder;
     }
