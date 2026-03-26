@@ -28,6 +28,12 @@ public sealed class BrowserTimeInterop(IJSRuntime jsRuntime) : IAsyncDisposable
             utcDateTime.UtcDateTime.ToString("O"));
     }
 
+    public async ValueTask HydrateDeferredImagesAsync(string selector, int maxConcurrentLoads = 4)
+    {
+        var module = await _moduleTask.Value;
+        await module.InvokeVoidAsync("hydrateDeferredImages", selector, maxConcurrentLoads);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_moduleTask.IsValueCreated)

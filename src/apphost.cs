@@ -1,8 +1,8 @@
 #pragma warning disable ASPIRECOMPUTE003 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 #pragma warning disable ASPIREPIPELINES003 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-#:sdk Aspire.AppHost.Sdk@13.1.3
+#:sdk Aspire.AppHost.Sdk@13.2.0
 
-#:package Aspire.Hosting.Azure.PostgreSQL
+#:package Aspire.Hosting.PostgreSQL
 #:package Aspire.Hosting.DevTunnels
 #:package Aspire.Hosting.Docker
 #:package Shirubasoft.Aspire.Cloudflared

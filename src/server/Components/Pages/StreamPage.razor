@@ -217,10 +217,13 @@
                             @if (!string.IsNullOrWhiteSpace(row.AuthorProfileImageUrl))
                             {
                               <img class="nmac-author-avatar"
-                              src="@BuildAvatarUrl(row)"
+                                   src="@AvatarPlaceholderDataUri"
+                                   data-avatar-src="@BuildAvatarUrl(row)"
                                    alt="@($"{row.AuthorDisplayName} avatar")"
                                    loading="lazy"
-                              referrerpolicy="no-referrer"
+                                   decoding="async"
+                                   fetchpriority="low"
+                                   referrerpolicy="no-referrer"
                               onerror="this.remove()" />
                             }
                             <div>
@@ -294,6 +297,7 @@
   private readonly Dictionary<string, string> _localArrivalTimes = new(StringComparer.Ordinal);
   private readonly List<LiveSuperChatRow> _visibleRows = [];
   private const int TopDonatorPreviewCount = 5;
+  private const string AvatarPlaceholderDataUri = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
   private IDisposable? _subscription;
   private Timer? _statsRefreshTimer;
@@ -352,8 +356,14 @@
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
-    if (!firstRender || !RendererInfo.IsInteractive)
+    if (!RendererInfo.IsInteractive)
       return;
+
+    if (!firstRender)
+    {
+      await HydrateDeferredAvatarsAsync();
+      return;
+    }
 
     _browserStateReady = true;
 
@@ -388,6 +398,8 @@
         StateHasChanged();
       });
     }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
+    await HydrateDeferredAvatarsAsync();
 
     StateHasChanged();
   }
@@ -572,6 +584,22 @@
   private void OnShowAcknowledgedChanged()
   {
     RebuildVisibleRows();
+  }
+
+  private async Task HydrateDeferredAvatarsAsync()
+  {
+    try
+    {
+      await BrowserTimeInterop.HydrateDeferredImagesAsync(".nmac-chat-table-wrap", 4);
+    }
+    catch (InvalidOperationException)
+    {
+      // JS interop unavailable; avatars still fall back to native lazy loading.
+    }
+    catch (JSDisconnectedException)
+    {
+      // JS interop unavailable; avatars still fall back to native lazy loading.
+    }
   }
 
   private void ToggleTopDonatorsExpanded()
