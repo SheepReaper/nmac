@@ -42,35 +42,30 @@ var api = builder.AddProject<Projects.NMAC>("api")
     .WaitFor(appDb)
     .WithEnvironment("DeveloperBasicAuth__Username", devUsername)
     .WithEnvironment("DeveloperBasicAuth__Password", devPassword)
-    .WithEnvironment("YTClient__ApiKey", ytApiKey)
-    .WithEnvironment("DataProtection__KeyRingPath", "/data-protection-keys")
-    .WithHttpEndpoint(8080, name: "devtunnel") // ms devtunnel
-    .WithHttpEndpoint(80, name: "http") // cloudflared
-    .WithContainerRegistry(registry)
-    .WithContainerBuildOptions(options =>
-    {
-        options.ImageFormat = ContainerImageFormat.Oci;
-        options.TargetPlatform = ContainerTargetPlatform.AllLinux;
-    })
-    .PublishAsDockerComposeService((_, service) =>
-    {
-        service.Healthcheck = new()
-        {
-            Interval = "5s",
-            StartPeriod = "15s",
-            Timeout = "2s",
-            Test = ["CMD", "wget", "--spider", "-q", "http://localhost:80/health"]
-        };
-    });
-
-var tunnel = builder.AddDevTunnel("dev-tunnel", "nmac")
-    .WithAnonymousAccess()
-    .WithReference(api);
-
-api.WithReference(api, tunnel);
+    .WithEnvironment("YTClient__ApiKey", ytApiKey);
 
 if (builder.Environment.IsProduction())
 {
+    api
+        .WithEnvironment("DataProtection__KeyRingPath", "/data-protection-keys")
+        .WithHttpEndpoint(8080, name: "http") // cloudflared
+        .WithContainerRegistry(registry)
+        .WithContainerBuildOptions(options =>
+        {
+            options.ImageFormat = ContainerImageFormat.Oci;
+            options.TargetPlatform = ContainerTargetPlatform.AllLinux;
+        })
+        .PublishAsDockerComposeService((_, service) =>
+        {
+            service.Healthcheck = new()
+            {
+                Interval = "5s",
+                StartPeriod = "5s",
+                Timeout = "1s",
+                Test = ["CMD", "wget", "--header=\"Host: nevermac.com\"", "--spider", "-q", "http://localhost:8080/health"]
+            };
+        });
+
     var publicHostname = builder.AddParameter("public-hostname");
 
     var cfTunnel = builder.AddCloudflareTunnel("nmac-cf-tunnel"); // Is also the tunnel name in cloudflare, so it needs to be unique across your account, not just this project
@@ -92,7 +87,15 @@ if (builder.Environment.IsProduction())
 
 if (builder.Environment.IsDevelopment())
 {
-    api.WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
+    api
+        .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
+        .WithHttpEndpoint(8080, name: "http"); // ms devtunnel
+
+    var tunnel = builder.AddDevTunnel("dev-tunnel", "nmac")
+        .WithAnonymousAccess()
+        .WithReference(api);
+
+    api.WithReference(api, tunnel);
 }
 
 await builder.Build().RunAsync();
