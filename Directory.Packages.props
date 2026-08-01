@@ -30,7 +30,7 @@
     <PackageVersion Include="protobuf-net.Grpc" Version="1.2.2" />
     <PackageVersion Include="Refit" Version="10.1.6" />
     <PackageVersion Include="Refit.HttpClientFactory" Version="10.1.6" />
-    <PackageVersion Include="Shirubasoft.Aspire.Cloudflared" Version="1.0.4" />
+    <PackageVersion Include="Shirubasoft.Aspire.Cloudflared" Version="1.1.1" />
     <PackageVersion Include="WolverineFx" Version="5.24.0" />
   </ItemGroup>
 </Project>
